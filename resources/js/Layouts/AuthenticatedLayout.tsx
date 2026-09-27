@@ -31,6 +31,11 @@ const navItems: Record<User['role'], NavItem[]> = {
             routeName: 'admin.streams.index',
             routePattern: 'admin/streams*',
         },
+        {
+            label: 'Subjects',
+            routeName: 'admin.subjects.index',
+            routePattern: 'admin/subjects*',
+        },
     ],
     teacher: [
         {

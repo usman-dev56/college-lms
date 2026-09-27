@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AcademicSessionController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\StreamController;
+use App\Http\Controllers\Admin\SubjectController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'role:admin'])
@@ -22,4 +23,7 @@ Route::middleware(['auth', 'role:admin'])
 
         // Streams
         Route::resource('streams', StreamController::class)->except(['show']);
+
+        // Subjects
+        Route::resource('subjects', SubjectController::class)->except(['show']);
     });
