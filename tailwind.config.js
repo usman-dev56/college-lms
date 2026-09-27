@@ -14,6 +14,23 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                serif: ['Georgia', 'Cambria', 'Times New Roman', ...defaultTheme.fontFamily.serif],
+            },
+            colors: {
+                navy: {
+                    DEFAULT: '#0F2B5B',
+                    dark: '#0A1E40',
+                    light: '#1A3D78',
+                },
+                gold: {
+                    DEFAULT: '#C9A227',
+                    light: '#E5C458',
+                    dark: '#8B6F1A',
+                },
+                surface: {
+                    DEFAULT: '#F8F9FB',
+                    card: '#FFFFFF',
+                },
             },
         },
     },
