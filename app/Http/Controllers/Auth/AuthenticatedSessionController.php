@@ -33,8 +33,17 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->intended($this->redirectPathFor($request->user()));
     }
+
+    private function redirectPathFor(\App\Models\User $user): string
+{
+    return match ($user->role) {
+        \App\Enums\UserRole::Admin => route('admin.dashboard', absolute: false),
+        \App\Enums\UserRole::Teacher => route('teacher.dashboard', absolute: false),
+        \App\Enums\UserRole::Student => route('student.dashboard', absolute: false),
+    };
+}
 
     /**
      * Destroy an authenticated session.
