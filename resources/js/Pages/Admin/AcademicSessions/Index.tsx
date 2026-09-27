@@ -1,4 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageProps } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 
 interface AcademicSession {
@@ -9,16 +10,16 @@ interface AcademicSession {
     is_active: boolean;
 }
 
-interface PageProps {
+type AcademicSessionsPageProps = {
     sessions: AcademicSession[];
     flash?: {
         success?: string;
         error?: string;
     };
-}
+};
 
 export default function Index() {
-    const { sessions, flash } = usePage<PageProps>().props;
+    const { sessions, flash } = usePage<PageProps<AcademicSessionsPageProps>>().props;
 
     const handleActivate = (session: AcademicSession) => {
         if (

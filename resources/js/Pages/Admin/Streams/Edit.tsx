@@ -7,31 +7,31 @@ import { PageProps } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 
-interface AcademicSession {
+interface Stream {
     id: number;
     name: string;
-    start_date: string;
-    end_date: string;
+    code: string;
+    description: string | null;
     is_active: boolean;
 }
 
-type AcademicSessionEditPageProps = {
-    session: AcademicSession;
+type StreamEditPageProps = {
+    stream: Stream;
 };
 
 export default function Edit() {
-    const { session } = usePage<PageProps<AcademicSessionEditPageProps>>().props;
+    const { stream } = usePage<PageProps<StreamEditPageProps>>().props;
 
     const { data, setData, put, processing, errors } = useForm({
-        name: session.name,
-        start_date: session.start_date,
-        end_date: session.end_date,
-        is_active: session.is_active,
+        name: stream.name,
+        code: stream.code,
+        description: stream.description ?? '',
+        is_active: stream.is_active,
     });
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        put(route('admin.academic-sessions.update', session.id));
+        put(route('admin.streams.update', stream.id));
     };
 
     return (
@@ -39,15 +39,15 @@ export default function Edit() {
             header={
                 <div>
                     <h2 className="font-serif text-xl font-semibold text-navy">
-                        Edit Academic Session
+                        Edit Stream
                     </h2>
                     <p className="mt-1 text-sm text-gray-600">
-                        Update details for session {session.name}.
+                        Update details for stream {stream.name}.
                     </p>
                 </div>
             }
         >
-            <Head title={`Edit Session ${session.name}`} />
+            <Head title={`Edit Stream ${stream.name}`} />
 
             <div className="mx-auto max-w-2xl">
                 <form
@@ -57,7 +57,7 @@ export default function Edit() {
                     <div>
                         <InputLabel
                             htmlFor="name"
-                            value="Session Name"
+                            value="Stream Name"
                             className="text-gray-700"
                         />
                         <TextInput
@@ -66,65 +66,64 @@ export default function Edit() {
                             name="name"
                             value={data.name}
                             className="mt-1 block w-full border-gray-300 focus:border-navy focus:ring-navy"
-                            placeholder="2026-2027"
+                            placeholder="Pre-Medical"
                             isFocused={true}
                             onChange={(e) =>
                                 setData('name', e.target.value)
                             }
                         />
-                        <p className="mt-1 text-xs text-gray-500">
-                            Format: YYYY-YYYY (e.g., 2026-2027)
-                        </p>
-                        <InputError
-                            message={errors.name}
-                            className="mt-2"
-                        />
+                        <InputError message={errors.name} className="mt-2" />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                        <div>
-                            <InputLabel
-                                htmlFor="start_date"
-                                value="Start Date"
-                                className="text-gray-700"
-                            />
-                            <TextInput
-                                id="start_date"
-                                type="date"
-                                name="start_date"
-                                value={data.start_date}
-                                className="mt-1 block w-full border-gray-300 focus:border-navy focus:ring-navy"
-                                onChange={(e) =>
-                                    setData('start_date', e.target.value)
-                                }
-                            />
-                            <InputError
-                                message={errors.start_date}
-                                className="mt-2"
-                            />
-                        </div>
+                    <div>
+                        <InputLabel
+                            htmlFor="code"
+                            value="Code"
+                            className="text-gray-700"
+                        />
+                        <TextInput
+                            id="code"
+                            type="text"
+                            name="code"
+                            value={data.code}
+                            className="mt-1 block w-full border-gray-300 uppercase focus:border-navy focus:ring-navy"
+                            placeholder="PM"
+                            maxLength={10}
+                            onChange={(e) =>
+                                setData('code', e.target.value)
+                            }
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                            Short uppercase code, e.g., PM, PE, ICS. Codes are
+                            always saved in uppercase.
+                        </p>
+                        <InputError message={errors.code} className="mt-2" />
+                    </div>
 
-                        <div>
-                            <InputLabel
-                                htmlFor="end_date"
-                                value="End Date"
-                                className="text-gray-700"
-                            />
-                            <TextInput
-                                id="end_date"
-                                type="date"
-                                name="end_date"
-                                value={data.end_date}
-                                className="mt-1 block w-full border-gray-300 focus:border-navy focus:ring-navy"
-                                onChange={(e) =>
-                                    setData('end_date', e.target.value)
-                                }
-                            />
-                            <InputError
-                                message={errors.end_date}
-                                className="mt-2"
-                            />
-                        </div>
+                    <div>
+                        <InputLabel
+                            htmlFor="description"
+                            value="Description"
+                            className="text-gray-700"
+                        />
+                        <textarea
+                            id="description"
+                            name="description"
+                            rows={3}
+                            value={data.description}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy"
+                            placeholder="FSc Pre-Medical — Biology, Physics, Chemistry"
+                            onChange={(e) =>
+                                setData('description', e.target.value)
+                            }
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                            Optional. Maximum 255 characters.
+                        </p>
+                        <InputError
+                            message={errors.description}
+                            className="mt-2"
+                        />
                     </div>
 
                     <div className="flex items-center gap-3 rounded-md bg-surface p-4 ring-1 ring-gray-200">
@@ -141,19 +140,17 @@ export default function Edit() {
                             htmlFor="is_active"
                             className="text-sm text-gray-700"
                         >
-                            <span className="font-medium">
-                                Set as active session
-                            </span>
+                            <span className="font-medium">Active</span>
                             <span className="mt-0.5 block text-xs text-gray-500">
-                                Activating this session will deactivate any
-                                other active session.
+                                Inactive streams stay on record but are hidden
+                                from future student enrolment choices.
                             </span>
                         </label>
                     </div>
 
                     <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
                         <Link
-                            href={route('admin.academic-sessions.index')}
+                            href={route('admin.streams.index')}
                             className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:text-navy"
                         >
                             Cancel
