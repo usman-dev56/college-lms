@@ -251,7 +251,7 @@ export default function AuthenticatedLayout({
                 {/* Main content */}
                 <main className="flex-1">
                     {header && (
-                        <div className="border-b border-gray-200 bg-white">
+                        <div className="sticky top-16 z-20 border-b border-gray-200 bg-white">
                             <div className="px-4 py-6 sm:px-6 lg:px-8">
                                 {header}
                             </div>
