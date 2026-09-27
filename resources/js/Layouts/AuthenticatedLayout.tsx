@@ -174,8 +174,8 @@ export default function AuthenticatedLayout({
             </header>
 
             <div className="flex">
-                {/* Sidebar — desktop */}
-                <aside className="hidden w-64 shrink-0 border-r border-gray-200 bg-white lg:block">
+                {/* Sidebar — desktop, sticky below the sticky header */}
+                <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white lg:block">
                     <nav className="space-y-1 px-3 py-4">
                         {items.map((item) => (
                             <Link
@@ -201,7 +201,7 @@ export default function AuthenticatedLayout({
                             className="fixed inset-0 z-30 bg-black/40 lg:hidden"
                             onClick={() => setSidebarOpen(false)}
                         />
-                        <aside className="fixed inset-y-0 left-0 z-40 w-64 border-r border-gray-200 bg-white lg:hidden">
+                        <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-gray-200 bg-white lg:hidden">
                             <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
                                 <span className="font-serif text-sm font-semibold text-navy">
                                     Menu
@@ -227,7 +227,7 @@ export default function AuthenticatedLayout({
                                     </svg>
                                 </button>
                             </div>
-                            <nav className="space-y-1 px-3 py-4">
+                            <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
                                 {items.map((item) => (
                                     <Link
                                         key={item.routeName}
