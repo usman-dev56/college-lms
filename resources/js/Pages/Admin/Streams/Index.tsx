@@ -44,7 +44,7 @@ export default function Index() {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
+                <div className="flex w-full items-center justify-between gap-4">
                     <h2 className="font-serif text-xl font-semibold text-navy">
                         Streams
                     </h2>

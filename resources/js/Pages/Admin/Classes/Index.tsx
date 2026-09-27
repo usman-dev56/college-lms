@@ -46,7 +46,7 @@ const thClass =
 const tdClass = 'whitespace-nowrap px-6 py-4 text-sm text-gray-700';
 
 const selectClass =
-    'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy';
+    'mt-1 block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy';
 
 export default function Index() {
     const { classes, sessions, streams, flash } =
@@ -115,7 +115,7 @@ export default function Index() {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
+                <div className="flex w-full items-center justify-between gap-4">
                     <h2 className="font-serif text-xl font-semibold text-navy">
                         Classes
                     </h2>
@@ -143,7 +143,7 @@ export default function Index() {
 
             <div className="flex flex-col gap-4">
                 {/* Filter bar — stays put under the sticky page header */}
-                <div className="flex flex-wrap items-end gap-4 rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200">
+                <div className="flex flex-wrap items-end gap-4 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200">
                     <div>
                         <label
                             htmlFor="session-filter"
@@ -208,7 +208,7 @@ export default function Index() {
                         </select>
                     </div>
 
-                    <p className="ml-auto text-sm text-gray-500">
+                    <p className="ml-auto flex h-10 items-center text-sm text-gray-500">
                         Showing {filtered.length} of {classes.length} classes
                     </p>
                 </div>

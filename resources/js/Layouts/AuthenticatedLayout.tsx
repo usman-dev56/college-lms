@@ -178,7 +178,7 @@ export default function AuthenticatedLayout({
                 </div>
             </header>
 
-            <div className="flex">
+            <div className="flex w-full overflow-x-hidden">
                 {/* Sidebar — desktop, sticky below the sticky header */}
                 <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white lg:block">
                     <nav className="space-y-1 px-3 py-4">
@@ -254,11 +254,11 @@ export default function AuthenticatedLayout({
                 )}
 
                 {/* Main content */}
-                <main className="flex-1">
+                <main className="min-w-0 flex-1">
                     {header && (
-                        <div className="sticky top-16 z-20 border-b border-gray-200 bg-white">
-                            <div className="px-4 py-6 sm:px-6 lg:px-8">
-                                {header}
+                        <div className="sticky top-16 z-20 shrink-0 border-b border-gray-200 bg-white">
+                            <div className="flex min-h-[4rem] items-center px-4 py-3 sm:px-6 lg:px-8">
+                                <div className="w-full">{header}</div>
                             </div>
                         </div>
                     )}
