@@ -58,12 +58,22 @@ const navItems: Record<User['role'], NavItem[]> = {
             routeName: 'teacher.dashboard',
             routePattern: 'teacher/dashboard',
         },
+        {
+            label: 'Timetable',
+            routeName: 'teacher.timetable',
+            routePattern: 'teacher/timetable',
+        },
     ],
     student: [
         {
             label: 'Dashboard',
             routeName: 'student.dashboard',
             routePattern: 'student/dashboard',
+        },
+        {
+            label: 'Timetable',
+            routeName: 'student.timetable',
+            routePattern: 'student/timetable',
         },
     ],
 };
