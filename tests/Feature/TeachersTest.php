@@ -145,7 +145,10 @@ class TeachersTest extends TestCase
                 ->where('filters.status', 'inactive'));
 
         // A subject filter keeps only teachers who actually hold that subject.
-        $this->actingAs($this->admin())->get('/admin/teachers?subject_id=1')
+        $physicsSubjectId = $physicsTeacher->teacherAssignments()->value('subject_id');
+
+        $this->actingAs($this->admin())
+            ->get('/admin/teachers?subject_id='.$physicsSubjectId)
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->has('teachers.data', 1)
