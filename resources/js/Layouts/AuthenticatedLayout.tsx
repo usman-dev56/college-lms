@@ -27,6 +27,11 @@ const navItems: Record<User['role'], NavItem[]> = {
             routePattern: 'admin/academic-sessions*',
         },
         {
+            label: 'Student Batches',
+            routeName: 'admin.student-batches.index',
+            routePattern: 'admin/student-batches*',
+        },
+        {
             label: 'Periods',
             routeName: 'admin.periods.index',
             routePattern: 'admin/periods*',

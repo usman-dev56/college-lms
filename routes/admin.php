@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ClassSubjectController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\StreamController;
+use App\Http\Controllers\Admin\StudentBatchController;
 use App\Http\Controllers\Admin\SubjectController;
 use App\Http\Controllers\Admin\TeacherController;
 use App\Http\Controllers\Admin\TimetableController;
@@ -68,4 +69,11 @@ Route::middleware(['auth', 'role:admin'])
         // The controller type-hints User and guards on the role, so a
         // non-teacher id in the URL is a 404 rather than a data leak.
         Route::resource('teachers', TeacherController::class);
+
+        // Student Batches
+        // Cohorts, which are separate from academic sessions: a batch spans
+        // several sessions and several batches run at once. No show page - a
+        // batch is read from the list, and its students arrive in 3.2.
+        Route::resource('student-batches', StudentBatchController::class)
+            ->except(['show']);
     });
