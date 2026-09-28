@@ -22,13 +22,15 @@ export default function Create() {
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h2 className="font-serif text-xl font-semibold text-navy">
-                        Create Academic Session
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Add a new academic year, e.g., 2026-2027.
-                    </p>
+                <div className="flex w-full items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-serif text-xl font-semibold text-navy">
+                            Create Academic Session
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Add a new academic year, e.g., 2026-2027.
+                        </p>
+                    </div>
                 </div>
             }
         >

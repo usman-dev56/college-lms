@@ -41,15 +41,17 @@ export default function Create() {
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h2 className="font-serif text-xl font-semibold text-navy">
-                        Create Subject
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Add a subject for Grade 11 or Grade 12. Leave the
-                        stream on "Compulsory" for subjects taken by every
-                        student.
-                    </p>
+                <div className="flex w-full items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-serif text-xl font-semibold text-navy">
+                            Create Subject
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Add a subject for Grade 11 or Grade 12. Leave the
+                            stream on "Compulsory" for subjects taken by every
+                            student.
+                        </p>
+                    </div>
                 </div>
             }
         >

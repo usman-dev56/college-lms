@@ -95,9 +95,9 @@ export default function AuthenticatedLayout({
     };
 
     return (
-        <div className="min-h-screen bg-surface">
-            {/* Top header */}
-            <header className="sticky top-0 z-30 border-b border-gray-200 bg-navy text-white">
+        <div className="flex h-screen flex-col overflow-hidden bg-surface">
+            {/* Top header — held in place by the flex column, not by sticky */}
+            <header className="z-30 shrink-0 border-b border-gray-200 bg-navy text-white">
                 <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-3">
                         <button
@@ -198,9 +198,10 @@ export default function AuthenticatedLayout({
                 </div>
             </header>
 
-            <div className="flex w-full overflow-x-hidden">
-                {/* Sidebar — desktop, sticky below the sticky header */}
-                <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white lg:block">
+            <div className="flex flex-1 overflow-hidden">
+                {/* Sidebar — desktop. The flex row pins it beside the content,
+                    so it needs no offset and scrolls only if it overflows. */}
+                <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white lg:block">
                     <nav className="space-y-1 px-3 py-4">
                         {items.map((item) => (
                             <Link
@@ -274,16 +275,22 @@ export default function AuthenticatedLayout({
                 )}
 
                 {/* Main content */}
-                <main className="min-w-0 flex-1">
+                <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {header && (
-                        <div className="sticky top-0 z-20 shrink-0 border-b border-gray-200 bg-white">
+                        <div className="shrink-0 border-b border-gray-200 bg-white">
                             <div className="flex min-h-[4rem] items-center px-4 py-3 sm:px-6 lg:px-8">
                                 <div className="w-full">{header}</div>
                             </div>
                         </div>
                     )}
 
-                    <div className="px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+                    {/* The only scrolling region on the page: the header, page
+                        header and sidebar all sit outside it. */}
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                        <div className="px-4 py-6 sm:px-6 lg:px-8">
+                            {children}
+                        </div>
+                    </div>
                 </main>
             </div>
         </div>

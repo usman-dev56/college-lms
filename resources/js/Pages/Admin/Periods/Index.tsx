@@ -102,7 +102,7 @@ export default function Index() {
             )}
 
             <div className="flex flex-col gap-4">
-                {/* Filter bar — stays put under the sticky page header */}
+                {/* Filter bar */}
                 <div className="flex flex-wrap items-end gap-3 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200">
                     <div className="w-full sm:w-64">
                         <label

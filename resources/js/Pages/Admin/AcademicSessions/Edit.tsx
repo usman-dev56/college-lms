@@ -37,13 +37,15 @@ export default function Edit() {
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h2 className="font-serif text-xl font-semibold text-navy">
-                        Edit Academic Session
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Update details for session {session.name}.
-                    </p>
+                <div className="flex w-full items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-serif text-xl font-semibold text-navy">
+                            Edit Academic Session
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Update details for session {session.name}.
+                        </p>
+                    </div>
                 </div>
             }
         >

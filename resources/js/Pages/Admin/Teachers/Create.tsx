@@ -24,13 +24,15 @@ export default function Create() {
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h2 className="font-serif text-xl font-semibold text-navy">
-                        New Teacher
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Add a member of the teaching staff.
-                    </p>
+                <div className="flex w-full items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-serif text-xl font-semibold text-navy">
+                            New Teacher
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Add a member of the teaching staff.
+                        </p>
+                    </div>
                 </div>
             }
         >

@@ -5,9 +5,11 @@ export default function Dashboard() {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Dashboard
-                </h2>
+                <div className="flex w-full items-center justify-between gap-4">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        Dashboard
+                    </h2>
+                </div>
             }
         >
             <Head title="Dashboard" />

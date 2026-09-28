@@ -52,14 +52,16 @@ export default function Create() {
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h2 className="font-serif text-xl font-semibold text-navy">
-                        Create Class
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Add a section of students for one session, grade level
-                        and stream.
-                    </p>
+                <div className="flex w-full items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-serif text-xl font-semibold text-navy">
+                            Create Class
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Add a section of students for one session, grade
+                            level and stream.
+                        </p>
+                    </div>
                 </div>
             }
         >

@@ -80,15 +80,6 @@ export default function Index() {
         router.delete(route('admin.subjects.destroy', subject.id));
     };
 
-    // A visible flash message pushes the table down by roughly 4rem, so the
-    // table area gets a matching smaller height budget in that case. Both
-    // class strings stay literal so Tailwind generates both utilities.
-    const hasFlash = Boolean(flash?.success || flash?.error);
-
-    const tableAreaHeightClass = hasFlash
-        ? 'max-h-[calc(100vh-24rem)] overflow-auto'
-        : 'max-h-[calc(100vh-20rem)] overflow-auto';
-
     return (
         <AuthenticatedLayout
             header={
@@ -119,7 +110,7 @@ export default function Index() {
             )}
 
             <div className="flex flex-col gap-4">
-                {/* Filter bar — stays put under the sticky page header */}
+                {/* Filter bar */}
                 <div className="flex flex-wrap items-end gap-4 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200">
                     <div>
                         <label
@@ -184,7 +175,7 @@ export default function Index() {
                     </div>
                 ) : (
                     <div className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-                        <div className={tableAreaHeightClass}>
+                        <div className="overflow-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="sticky top-0 z-10 bg-surface">
                                     <tr>

@@ -23,13 +23,15 @@ export default function Timetable() {
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h2 className="font-serif text-xl font-semibold text-navy">
-                        My Timetable
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Your weekly class schedule
-                    </p>
+                <div className="flex w-full items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-serif text-xl font-semibold text-navy">
+                            My Timetable
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Your weekly class schedule
+                        </p>
+                    </div>
                 </div>
             }
         >
