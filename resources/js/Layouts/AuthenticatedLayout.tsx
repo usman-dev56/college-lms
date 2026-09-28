@@ -285,9 +285,24 @@ export default function AuthenticatedLayout({
                     )}
 
                     {/* The only scrolling region on the page: the header, page
-                        header and sidebar all sit outside it. */}
+                        header and sidebar all sit outside it.
+
+                        The inner wrapper is h-full, not min-h-full, and that
+                        distinction is what makes the table grid work. A
+                        min-height leaves the height property "auto", and a
+                        percentage height against an auto-height parent
+                        resolves to auto as well. An Index page's body is
+                        h-full min-h-0, so with min-h-full the whole chain
+                        collapsed to auto: the table card grew to the full
+                        height of its table and this wrapper scrolled the page
+                        instead. A definite height bounds the table card, which
+                        leaves its inner overflow-auto the only scroll region.
+
+                        Content taller than the viewport - the Create, Edit and
+                        Show pages - still scrolls here, because an overflowing
+                        child extends this element's scrollable overflow. */}
                     <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                        <div className="flex min-h-full flex-col px-4 py-6 sm:px-6 lg:px-8">
+                        <div className="flex h-full flex-col px-4 py-6 sm:px-6 lg:px-8">
                             {children}
                         </div>
                     </div>
