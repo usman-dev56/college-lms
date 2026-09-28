@@ -94,6 +94,14 @@ class ClassModel extends Model
     }
 
     /**
+     * The weekly timetable cells of this class.
+     */
+    public function timetableSlots(): HasMany
+    {
+        return $this->hasMany(TimetableSlot::class, 'class_id');
+    }
+
+    /**
      * Scope: only active classes.
      */
     public function scopeActive(Builder $query): Builder

@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\StreamController;
 use App\Http\Controllers\Admin\SubjectController;
 use App\Http\Controllers\Admin\TeacherController;
+use App\Http\Controllers\Admin\TimetableController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'role:admin'])
@@ -49,6 +50,19 @@ Route::middleware(['auth', 'role:admin'])
         Route::resource('classes', ClassController::class)
             ->except(['show'])
             ->parameters(['classes' => 'class']);
+
+        // Timetables
+        // These sit after the resource deliberately: the paths are distinct
+        // (/classes/{class}/timetable) so order does not matter, but keeping
+        // them together after the resource reads better than interleaving.
+        Route::get('classes/{class}/timetable', [TimetableController::class, 'edit'])
+            ->name('classes.timetable.edit');
+
+        Route::put('classes/{class}/timetable', [TimetableController::class, 'update'])
+            ->name('classes.timetable.update');
+
+        Route::get('classes/{class}/timetable/view', [TimetableController::class, 'show'])
+            ->name('classes.timetable.show');
 
         // Teachers
         // The controller type-hints User and guards on the role, so a
