@@ -109,9 +109,9 @@ export default function Show() {
         >
             <Head title={teacher.name} />
 
-            <div className="flex flex-col gap-4">
+            <div className="flex h-full min-h-0 flex-col gap-4">
                 {/* Profile card */}
-                <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200">
+                <div className="shrink-0 rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                             <h3 className="font-serif text-2xl font-semibold text-navy">
@@ -171,8 +171,8 @@ export default function Show() {
                 </div>
 
                 {/* Assignments card */}
-                <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-                    <div className="flex flex-wrap items-end gap-3 border-b border-gray-200 px-6 py-4">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+                    <div className="shrink-0 flex flex-wrap items-end gap-3 border-b border-gray-200 px-6 py-4">
                         <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-700">
                             Class Assignments
                         </h3>
@@ -247,7 +247,7 @@ export default function Show() {
                                 : 'No assignments match the selected filters.'}
                         </p>
                     ) : (
-                        <div className="overflow-auto">
+                        <div className="min-h-0 flex-1 overflow-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="sticky top-0 z-10 bg-surface">
                                     <tr>

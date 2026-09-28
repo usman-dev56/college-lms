@@ -70,98 +70,106 @@ export default function Index() {
                 </div>
             )}
 
-            {streams.length === 0 ? (
-                <div className="rounded-lg bg-white px-6 py-12 text-center shadow-sm ring-1 ring-gray-200">
-                    <p className="text-sm text-gray-600">
-                        No streams yet. Create the first one to get started.
-                    </p>
-                    <Link
-                        href={route('admin.streams.create')}
-                        className="mt-4 inline-block rounded-md bg-navy px-4 py-2 text-sm font-semibold uppercase tracking-wider text-white hover:bg-navy-dark"
-                    >
-                        New Stream
-                    </Link>
-                </div>
-            ) : (
-                <div className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-surface">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                    Name
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                    Code
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                    Description
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 bg-white">
-                            {streams.map((stream) => (
-                                <tr key={stream.id} className="hover:bg-surface">
-                                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-navy">
-                                        {stream.name}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                                        <span className="inline-flex items-center rounded-md bg-surface px-2 py-1 font-mono text-xs font-semibold text-navy ring-1 ring-gray-200">
-                                            {stream.code}
-                                        </span>
-                                    </td>
-                                    <td
-                                        className="px-6 py-4 text-sm text-gray-700"
-                                        title={
-                                            stream.description ?? undefined
-                                        }
-                                    >
-                                        {truncate(stream.description)}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                        {stream.is_active ? (
-                                            <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
-                                                Active
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                                                Inactive
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                        <div className="flex items-center justify-end gap-3">
-                                            <Link
-                                                href={route(
-                                                    'admin.streams.edit',
-                                                    stream.id,
-                                                )}
-                                                className="font-medium text-navy hover:text-gold"
-                                            >
-                                                Edit
-                                            </Link>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    handleDelete(stream)
+            <div className="flex h-full min-h-0 flex-col gap-4">
+                {streams.length === 0 ? (
+                    <div className="rounded-lg bg-white px-6 py-12 text-center shadow-sm ring-1 ring-gray-200">
+                        <p className="text-sm text-gray-600">
+                            No streams yet. Create the first one to get
+                            started.
+                        </p>
+                        <Link
+                            href={route('admin.streams.create')}
+                            className="mt-4 inline-block rounded-md bg-navy px-4 py-2 text-sm font-semibold uppercase tracking-wider text-white hover:bg-navy-dark"
+                        >
+                            New Stream
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+                        <div className="min-h-0 flex-1 overflow-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="sticky top-0 z-10 bg-surface">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                            Name
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                            Code
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                            Description
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                            Status
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                    {streams.map((stream) => (
+                                        <tr key={stream.id} className="hover:bg-surface">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-navy">
+                                                {stream.name}
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                                <span className="inline-flex items-center rounded-md bg-surface px-2 py-1 font-mono text-xs font-semibold text-navy ring-1 ring-gray-200">
+                                                    {stream.code}
+                                                </span>
+                                            </td>
+                                            <td
+                                                className="px-6 py-4 text-sm text-gray-700"
+                                                title={
+                                                    stream.description ??
+                                                    undefined
                                                 }
-                                                className="font-medium text-red-600 hover:text-red-800"
                                             >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                                {truncate(stream.description)}
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm">
+                                                {stream.is_active ? (
+                                                    <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                                                        Active
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                                        Inactive
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <Link
+                                                        href={route(
+                                                            'admin.streams.edit',
+                                                            stream.id,
+                                                        )}
+                                                        className="font-medium text-navy hover:text-gold"
+                                                    >
+                                                        Edit
+                                                    </Link>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            handleDelete(
+                                                                stream,
+                                                            )
+                                                        }
+                                                        className="font-medium text-red-600 hover:text-red-800"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
         </AuthenticatedLayout>
     );
 }

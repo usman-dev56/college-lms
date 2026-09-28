@@ -157,9 +157,9 @@ export default function Index() {
                 </div>
             )}
 
-            <div className="flex flex-col gap-4">
+            <div className="flex h-full min-h-0 flex-col gap-4">
                 {/* Filter bar */}
-                <div className="flex flex-wrap items-end gap-3 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200">
+                <div className="shrink-0 flex flex-wrap items-end gap-3 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200">
                     <div className="w-full sm:w-64">
                         <label
                             htmlFor="teacher-search"
@@ -288,8 +288,8 @@ export default function Index() {
                         </Link>
                     </div>
                 ) : (
-                    <div className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-                        <div className="overflow-auto">
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+                        <div className="min-h-0 flex-1 overflow-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="sticky top-0 z-10 bg-surface">
                                     <tr>
@@ -395,7 +395,7 @@ export default function Index() {
                         </div>
 
                         {teachers.last_page > 1 && (
-                            <nav className="flex items-center justify-between border-t border-gray-200 px-6 py-3">
+                            <nav className="shrink-0 flex items-center justify-between border-t border-gray-200 px-6 py-3">
                                 <p className="text-sm text-gray-500">
                                     Page {teachers.current_page} of{' '}
                                     {teachers.last_page}

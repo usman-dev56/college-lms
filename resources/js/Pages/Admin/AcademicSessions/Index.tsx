@@ -83,99 +83,108 @@ export default function Index() {
                 </div>
             )}
 
-            <div className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-surface">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                Name
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                Start Date
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                End Date
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                Status
-                            </th>
-                            <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                        {sessions.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={5}
-                                    className="px-6 py-12 text-center text-sm text-gray-500"
-                                >
-                                    No academic sessions yet. Create the first
-                                    one to get started.
-                                </td>
-                            </tr>
-                        )}
+            <div className="flex h-full min-h-0 flex-col gap-4">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+                    <div className="min-h-0 flex-1 overflow-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="sticky top-0 z-10 bg-surface">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                        Name
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                        Start Date
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                        End Date
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                        Status
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                                {sessions.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={5}
+                                            className="px-6 py-12 text-center text-sm text-gray-500"
+                                        >
+                                            No academic sessions yet. Create
+                                            the first one to get started.
+                                        </td>
+                                    </tr>
+                                )}
 
-                        {sessions.map((session) => (
-                            <tr key={session.id} className="hover:bg-surface">
-                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-navy">
-                                    {session.name}
-                                </td>
-                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                                    {formatDate(session.start_date)}
-                                </td>
-                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                                    {formatDate(session.end_date)}
-                                </td>
-                                <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                    {session.is_active ? (
-                                        <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
-                                            Active
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                                            Inactive
-                                        </span>
-                                    )}
-                                </td>
-                                <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <div className="flex items-center justify-end gap-3">
-                                        {!session.is_active && (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    handleActivate(session)
-                                                }
-                                                className="font-medium text-green-700 hover:text-green-900"
-                                            >
-                                                Activate
-                                            </button>
-                                        )}
-                                        <Link
-                                            href={route(
-                                                'admin.academic-sessions.edit',
-                                                session.id,
+                                {sessions.map((session) => (
+                                    <tr
+                                        key={session.id}
+                                        className="hover:bg-surface"
+                                    >
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-navy">
+                                            {session.name}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            {formatDate(session.start_date)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            {formatDate(session.end_date)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm">
+                                            {session.is_active ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                                                    Active
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                                    Inactive
+                                                </span>
                                             )}
-                                            className="font-medium text-navy hover:text-gold"
-                                        >
-                                            Edit
-                                        </Link>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                handleDelete(session)
-                                            }
-                                            className="font-medium text-red-600 hover:text-red-800"
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                            <div className="flex items-center justify-end gap-3">
+                                                {!session.is_active && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            handleActivate(
+                                                                session,
+                                                            )
+                                                        }
+                                                        className="font-medium text-green-700 hover:text-green-900"
+                                                    >
+                                                        Activate
+                                                    </button>
+                                                )}
+                                                <Link
+                                                    href={route(
+                                                        'admin.academic-sessions.edit',
+                                                        session.id,
+                                                    )}
+                                                    className="font-medium text-navy hover:text-gold"
+                                                >
+                                                    Edit
+                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        handleDelete(session)
+                                                    }
+                                                    className="font-medium text-red-600 hover:text-red-800"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </AuthenticatedLayout>
     );

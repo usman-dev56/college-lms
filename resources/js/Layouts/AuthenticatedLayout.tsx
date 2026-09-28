@@ -287,7 +287,7 @@ export default function AuthenticatedLayout({
                     {/* The only scrolling region on the page: the header, page
                         header and sidebar all sit outside it. */}
                     <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                        <div className="px-4 py-6 sm:px-6 lg:px-8">
+                        <div className="flex min-h-full flex-col px-4 py-6 sm:px-6 lg:px-8">
                             {children}
                         </div>
                     </div>
