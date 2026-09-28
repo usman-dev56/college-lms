@@ -48,6 +48,11 @@ type EditTimetablePageProps = {
     classSubjects: ClassSubjectOption[];
     existingSlots: ExistingSlot[];
     remaining: Record<string, number>;
+    /**
+     * Where each teacher is already booked in another class, keyed
+     * "day-periodId-teacherId" and valued with the occupying class.
+     */
+    teacherConflicts: Record<string, string>;
     flash?: {
         success?: string;
         error?: string;
@@ -73,6 +78,7 @@ export default function Edit() {
         classSubjects,
         existingSlots,
         remaining,
+        teacherConflicts,
         flash,
     } = usePage<PageProps<EditTimetablePageProps>>().props;
 
@@ -148,6 +154,26 @@ export default function Edit() {
     const totalRemaining = Object.values(liveRemaining).reduce(
         (sum, count) => sum + count,
         0,
+    );
+
+    // Whether any filled cell puts a teacher in two classes at the same time.
+    // The save is still checked server side; this only warns the admin before
+    // they lose a whole round of edits to a rejected submit.
+    const hasConflicts = Object.entries(grid).some(
+        ([key, classSubjectId]) => {
+            const [day, periodId] = key.split('-').map(Number);
+            const option = classSubjects.find(
+                (candidate) => candidate.id === classSubjectId,
+            );
+
+            if (!option) {
+                return false;
+            }
+
+            return Boolean(
+                teacherConflicts[`${day}-${periodId}-${option.teacher_id}`],
+            );
+        },
     );
 
     const setCell = (day: number, periodId: number, value: string) => {
@@ -289,6 +315,7 @@ export default function Edit() {
                                         days={days}
                                         grid={grid}
                                         classSubjects={classSubjects}
+                                        teacherConflicts={teacherConflicts}
                                         onChange={setCell}
                                     />
                                 ))}
@@ -302,6 +329,13 @@ export default function Edit() {
                                 ? 'Every subject has its full weekly allocation. Ready to save.'
                                 : 'The week is not complete yet. The server will reject a partial save.'}
                         </p>
+                        {hasConflicts && (
+                            <p className="text-sm text-red-600">
+                                One or more teachers are double-booked. Save
+                                will be rejected until the conflicts are
+                                resolved.
+                            </p>
+                        )}
                         <div className="flex items-center gap-3">
                             <button
                                 type="button"
@@ -330,6 +364,7 @@ interface PeriodRowProps {
     days: Record<string, string>;
     grid: Grid;
     classSubjects: ClassSubjectOption[];
+    teacherConflicts: Record<string, string>;
     onChange: (day: number, periodId: number, value: string) => void;
 }
 
@@ -345,6 +380,7 @@ function PeriodRow({
     days,
     grid,
     classSubjects,
+    teacherConflicts,
     onChange,
 }: PeriodRowProps) {
     if (period.is_break) {
@@ -377,9 +413,22 @@ function PeriodRow({
             {dayNumbers.map((day) => {
                 const key = cellKey(day, period.id);
                 const value = grid[key];
+                const selected = classSubjects.find(
+                    (option) => option.id === value,
+                );
+                const selectedConflict = selected
+                    ? teacherConflicts[
+                          `${day}-${period.id}-${selected.teacher_id}`
+                      ]
+                    : undefined;
 
                 return (
-                    <td key={key} className="border-b border-gray-100 p-1">
+                    <td
+                        key={key}
+                        className={`border-b border-gray-100 p-1 ${
+                            selectedConflict ? 'bg-red-50' : ''
+                        }`}
+                    >
                         <select
                             aria-label={`${days[String(day)]} ${period.label}`}
                             value={value ? String(value) : ''}
@@ -389,13 +438,33 @@ function PeriodRow({
                             }
                         >
                             <option value="">—</option>
-                            {classSubjects.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                    {option.subject_name} (
-                                    {option.teacher_name})
-                                </option>
-                            ))}
+                            {classSubjects.map((option) => {
+                                // Marks an option the server would refuse to
+                                // save here. It stays selectable on purpose: the
+                                // admin may want to place it and then move it
+                                // somewhere free, and only they can decide.
+                                const conflictClass =
+                                    teacherConflicts[
+                                        `${day}-${period.id}-${option.teacher_id}`
+                                    ];
+
+                                return (
+                                    <option key={option.id} value={option.id}>
+                                        {option.subject_name} (
+                                        {option.teacher_name})
+                                        {conflictClass
+                                            ? ` — ⚠ already teaching ${conflictClass}`
+                                            : ''}
+                                    </option>
+                                );
+                            })}
                         </select>
+                        {selectedConflict && selected && (
+                            <p className="mt-1 text-xs text-red-600">
+                                {selected.teacher_name} is already teaching{' '}
+                                {selectedConflict} at this time.
+                            </p>
+                        )}
                     </td>
                 );
             })}

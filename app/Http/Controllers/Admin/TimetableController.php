@@ -49,7 +49,55 @@ class TimetableController extends Controller
             'classSubjects' => $data['classSubjects'],
             'existingSlots' => $data['slots'],
             'remaining' => $data['remaining'],
+            // Where every other class has already booked each teacher, so the
+            // grid can flag a clash while the admin is still editing.
+            'teacherConflicts' => $this->teacherConflicts($class),
         ]);
+    }
+
+    /**
+     * Which other class already occupies each teacher, per grid cell.
+     *
+     * The builder lets the admin pick a subject whose teacher is booked
+     * elsewhere at the same day and period. The save is rejected for exactly
+     * that reason, but only once every edit has been made - so the clashes
+     * are sent to the grid up front and flagged in the cells instead.
+     *
+     * The key is "day-periodId-teacherId" and the value names the class
+     * occupying that teacher's time. This class's own slots are excluded,
+     * because the same teacher may legitimately teach it several times in a
+     * week. If one teacher is booked by several classes at the same time the
+     * last row wins: the warning is only a hint, and the save is still
+     * checked server side.
+     *
+     * @return array<string, string>
+     */
+    private function teacherConflicts(ClassModel $class): array
+    {
+        return DB::table('timetable_slots as ts')
+            ->join('class_subjects as cs', 'cs.id', '=', 'ts.class_subject_id')
+            ->join('classes as c', 'c.id', '=', 'ts.class_id')
+            ->join('streams as s', 's.id', '=', 'c.stream_id')
+            ->whereNull('ts.deleted_at')
+            ->whereNull('cs.deleted_at')
+            ->where('c.academic_session_id', $class->academic_session_id)
+            ->where('ts.class_id', '!=', $class->id)
+            ->get([
+                'ts.day_of_week',
+                'ts.period_id',
+                'cs.teacher_id',
+                'c.grade_level',
+                'c.section',
+                's.name as stream_name',
+            ])
+            ->mapWithKeys(function (object $row): array {
+                $key = $row->day_of_week.'-'.$row->period_id.'-'.$row->teacher_id;
+
+                return [
+                    $key => 'Grade '.$row->grade_level.' '.$row->stream_name.' '.$row->section,
+                ];
+            })
+            ->toArray();
     }
 
     /**
