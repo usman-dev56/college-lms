@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AcademicSessionController;
 use App\Http\Controllers\Admin\ClassController;
 use App\Http\Controllers\Admin\ClassSubjectController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\StreamController;
 use App\Http\Controllers\Admin\SubjectController;
 use App\Http\Controllers\Admin\TeacherController;
@@ -23,6 +24,9 @@ Route::middleware(['auth', 'role:admin'])
             'academic-sessions/{academic_session}/activate',
             [AcademicSessionController::class, 'activate']
         )->name('academic-sessions.activate');
+
+        // Periods - the daily timetable grid, configured per session.
+        Route::resource('periods', PeriodController::class)->except(['show']);
 
         // Streams
         Route::resource('streams', StreamController::class)->except(['show']);
