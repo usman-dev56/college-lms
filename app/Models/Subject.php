@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Subject extends Model
@@ -57,6 +58,14 @@ class Subject extends Model
     public function streams(): BelongsToMany
     {
         return $this->belongsToMany(Stream::class, 'stream_subject')->withTimestamps();
+    }
+
+    /**
+     * Every teaching assignment for this subject, across classes.
+     */
+    public function classSubjects(): HasMany
+    {
+        return $this->hasMany(ClassSubject::class);
     }
 
     /**

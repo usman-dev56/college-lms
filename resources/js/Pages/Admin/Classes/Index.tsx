@@ -289,6 +289,15 @@ export default function Index() {
                                                 <div className="flex items-center justify-end gap-3">
                                                     <Link
                                                         href={route(
+                                                            'admin.classes.assignments.edit',
+                                                            classRow.id,
+                                                        )}
+                                                        className="font-medium text-gold hover:text-gold-dark"
+                                                    >
+                                                        Assign
+                                                    </Link>
+                                                    <Link
+                                                        href={route(
                                                             'admin.classes.edit',
                                                             classRow.id,
                                                         )}

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ClassModel extends Model
@@ -60,6 +62,35 @@ class ClassModel extends Model
     public function stream(): BelongsTo
     {
         return $this->belongsTo(Stream::class);
+    }
+
+    /**
+     * The subjects taught in this class, with their teaching assignment.
+     *
+     * The pivot carries the teacher and the weekly period count, so those
+     * columns are readable on each subject. Soft-deleted assignments are
+     * excluded, which keeps a removed subject from looking like it is still
+     * taught here.
+     */
+    public function subjects(): BelongsToMany
+    {
+        return $this->belongsToMany(Subject::class, 'class_subjects', 'class_id', 'subject_id')
+            ->withPivot(['id', 'teacher_id', 'periods_per_week'])
+            ->withTimestamps()
+            ->wherePivotNull('deleted_at');
+    }
+
+    /**
+     * Every teaching assignment in this class.
+     *
+     * Includes soft-deleted rows, so the admin can still see a subject that
+     * was removed and restore it instead of creating a duplicate.
+     */
+    public function classSubjects(): HasMany
+    {
+        // The foreign key is given explicitly: Laravel would derive
+        // "class_model_id" from the ClassModel class name.
+        return $this->hasMany(ClassSubject::class, 'class_id');
     }
 
     /**
