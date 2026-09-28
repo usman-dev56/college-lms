@@ -41,6 +41,11 @@ const navItems: Record<User['role'], NavItem[]> = {
             routeName: 'admin.classes.index',
             routePattern: 'admin/classes*',
         },
+        {
+            label: 'Teachers',
+            routeName: 'admin.teachers.index',
+            routePattern: 'admin/teachers*',
+        },
     ],
     teacher: [
         {
@@ -256,7 +261,7 @@ export default function AuthenticatedLayout({
                 {/* Main content */}
                 <main className="min-w-0 flex-1">
                     {header && (
-                        <div className="sticky top-16 z-20 shrink-0 border-b border-gray-200 bg-white">
+                        <div className="sticky top-0 z-20 shrink-0 border-b border-gray-200 bg-white">
                             <div className="flex min-h-[4rem] items-center px-4 py-3 sm:px-6 lg:px-8">
                                 <div className="w-full">{header}</div>
                             </div>

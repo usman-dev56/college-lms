@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ClassSubjectController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\StreamController;
 use App\Http\Controllers\Admin\SubjectController;
+use App\Http\Controllers\Admin\TeacherController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'role:admin'])
@@ -44,4 +45,9 @@ Route::middleware(['auth', 'role:admin'])
         Route::resource('classes', ClassController::class)
             ->except(['show'])
             ->parameters(['classes' => 'class']);
+
+        // Teachers
+        // The controller type-hints User and guards on the role, so a
+        // non-teacher id in the URL is a 404 rather than a data leak.
+        Route::resource('teachers', TeacherController::class);
     });

@@ -34,6 +34,14 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // Laravel's session flash is not shared by Inertia on its own, but
+            // every admin page renders a success/error banner from props.flash.
+            // The closures keep both keys lazy, so a page that does not read
+            // them never touches the session.
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
         ];
     }
 }
