@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AcademicSessionController;
+use App\Http\Controllers\Admin\AdmissionController;
 use App\Http\Controllers\Admin\ClassController;
 use App\Http\Controllers\Admin\ClassSubjectController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -78,6 +79,24 @@ Route::middleware(['auth', 'role:admin'])
         // guards on the account's role, so a teacher or admin id is a 404
         // here too.
         Route::resource('students', StudentController::class);
+
+        // Admissions
+        // Not a resource: applications arrive from the public form, so there
+        // is nothing to create, edit or delete from the admin side. The office
+        // reads the list, opens one, and moves it through the workflow - so
+        // the three actions are their own PATCH routes rather than an update
+        // on the whole record, which would let one of them rewrite the
+        // applicant's name and address by accident.
+        Route::get('admissions', [AdmissionController::class, 'index'])
+            ->name('admissions.index');
+        Route::get('admissions/{admission}', [AdmissionController::class, 'show'])
+            ->name('admissions.show');
+        Route::patch('admissions/{admission}/review', [AdmissionController::class, 'review'])
+            ->name('admissions.review');
+        Route::patch('admissions/{admission}/accept', [AdmissionController::class, 'accept'])
+            ->name('admissions.accept');
+        Route::patch('admissions/{admission}/reject', [AdmissionController::class, 'reject'])
+            ->name('admissions.reject');
 
         // Student Batches
         // Cohorts, which are separate from academic sessions: a batch spans
