@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectAdmissionRequest;
 use App\Models\Admission;
 use App\Models\Stream;
 use App\Models\StudentBatch;
+use App\Models\StudentProfile;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -185,6 +190,248 @@ class AdmissionController extends Controller
         ]);
 
         return back()->with('success', 'Application rejected.');
+    }
+
+    /**
+     * Refuse a status transition that is not allowed from where the
+     * application currently stands.
+     *
+     * 422 rather than a redirect: the request was well-formed, it was the
+     * state of the record that made it meaningless. A redirect with a flash
+     * would be indistinguishable from success in the browser, and the admin
+     * would think the accept had gone through.
+     */
+
+    /**
+     * Rank the applications for a batch by matric percentage.
+     *
+     * Only 'pending' and 'reviewed' are ranked. Accepted, rejected and
+     * enrolled applications are already decided, and leaving them in would
+     * imply a decision is still open on them.
+     *
+     * The ranks are written back to the row as they are assigned, so the
+     * number the office printed last term still matches what the page shows
+     * now. Recomputing on every load is deliberate: an applicant who
+     * corrects their marks, or a late one that arrives, moves the list, and a
+     * stored-but-stale rank would quietly disagree with the ordering.
+     */
+    public function meritList(Request $request): Response
+    {
+        $batches = $this->batchOptions();
+
+        // The batch is required, but a bare /admin/admissions/merit-list has
+        // nothing to rank, so it falls back to the first batch rather than
+        // erroring. The page is useful on arrival instead of blank.
+        $batchId = $this->numericId($request->query('batch_id'))
+            ?? ($batches->first()['id'] ?? null);
+
+        $streamId = $this->numericId($request->query('stream_id'));
+
+        $rankable = Admission::query()
+            ->with(['batch', 'streamApplied'])
+            ->whereIn('status', ['pending', 'reviewed'])
+            ->when($batchId !== null, fn (Builder $q) => $q->where('batch_id', $batchId))
+            ->when($streamId !== null, fn (Builder $q) => $q->where('stream_applied_id', $streamId))
+            ->get();
+
+        /*
+            Split by whether a percentage can be worked out at all.
+
+            A null or zero total is a data-entry slip on a public form, and
+            dividing by it would rank the applicant last - as though they had
+            failed - rather than saying "unknown". Those applications are
+            listed separately so the office can chase the missing marks
+            instead of silently dropping them.
+        */
+        $ranked = $rankable
+            ->filter(fn (Admission $a) => $a->merit_percentage !== null)
+            ->sortByDesc(fn (Admission $a) => $a->merit_percentage)
+            // Ties are common - whole numbers of marks out of 1100 collide
+            // often - so the application number breaks them, which keeps the
+            // order stable between loads instead of shuffling at random.
+            ->values();
+
+        $unranked = $rankable
+            ->filter(fn (Admission $a) => $a->merit_percentage === null)
+            ->sortBy('application_number')
+            ->values();
+
+        $this->persistRanks(
+            $ranked
+                ->map(fn (Admission $a, int $i) => ['id' => $a->id, 'merit_rank' => $i + 1])
+                ->all()
+        );
+
+        return Inertia::render('Admin/Admissions/MeritList', [
+            'applications' => $ranked->map(fn (Admission $a, int $i) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => $a->applicant_name,
+                'father_name' => $a->father_name,
+                'cnic_bform' => $a->cnic_bform,
+                'merit_percentage' => $a->merit_percentage,
+                'previous_marks_obtained' => $a->previous_marks_obtained,
+                'previous_marks_total' => $a->previous_marks_total,
+                'stream_name' => $a->streamApplied?->name,
+                'batch_name' => $a->batch?->name,
+                'merit_rank' => $i + 1,
+                'status' => $a->status,
+            ])->all(),
+            'unranked' => $unranked->map(fn (Admission $a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => $a->applicant_name,
+                'cnic_bform' => $a->cnic_bform,
+                'status' => $a->status,
+            ])->all(),
+            'batches' => $batches,
+            'streams' => $this->streamOptions(),
+            'selected_batch_id' => $batchId,
+            'selected_stream_id' => $streamId,
+        ]);
+    }
+
+    /**
+     * Write the computed ranks back to the applications.
+     *
+     * Each row is saved individually rather than through a single bulk
+     * update, because every rank differs; a CASE expression would be one
+     * query but a great deal harder to read for no real gain at this size.
+     *
+     * @param  array<int, array{id:int, merit_rank:int}>  $updates
+     */
+    private function persistRanks(array $updates): void
+    {
+        foreach ($updates as $update) {
+            Admission::query()
+                ->whereKey($update['id'])
+                ->update(['merit_rank' => $update['merit_rank']]);
+        }
+    }
+
+    /**
+     * Turn an accepted application into a student.
+     *
+     * A transaction, because this writes to three tables and a half-created
+     * student is worse than none: an account with no profile cannot be found
+     * on the roll, and an application marked enrolled with no student behind
+     * it has lost its only link to the real person.
+     *
+     * The password is generated here and shown once in the flash message.
+     * It is never emailed and never stored in plain text - the User model
+     * hashes it on the way in, so the only copy the college will ever see is
+     * the one on screen at the moment of creation.
+     */
+    public function convert(Admission $admission): RedirectResponse
+    {
+        $this->ensureStatus($admission, ['accepted']);
+
+        // The status guard already refuses a second conversion, but a
+        // double-submitted request can arrive with the status still cached
+        // in the model. Checking the link directly closes that window.
+        abort_if(
+            $admission->enrolled_student_profile_id !== null,
+            422,
+            'This application has already been converted.'
+        );
+
+        $password = Str::random(12);
+
+        $profile = DB::transaction(function () use ($admission, $password): StudentProfile {
+            $user = User::create([
+                'name' => $admission->applicant_name,
+                'email' => $this->generateUniqueEmail($admission->applicant_name),
+                'password' => $password,
+                'role' => UserRole::Student,
+                'is_active' => true,
+
+                // The applicant may have given a number another account
+                // already holds. Losing the phone is a small problem; a failed
+                // insert on a full unique index would lose the whole
+                // enrolment, so the phone is dropped instead.
+                'phone' => $this->availablePhone($admission->phone),
+            ]);
+
+            $profile = StudentProfile::create([
+                'user_id' => $user->id,
+                'batch_id' => $admission->batch_id,
+
+                // Assigned inside the transaction for the same reason the
+                // students module does it: the number would otherwise be
+                // stale, and the database is the only true reading.
+                'roll_number' => StudentProfile::nextRollNumber($admission->batch_id),
+
+                'cnic_bform' => $admission->cnic_bform,
+                'father_name' => $admission->father_name,
+                'date_of_birth' => $admission->date_of_birth,
+                'guardian_phone' => $admission->guardian_phone,
+                'address' => $admission->address,
+                'previous_school' => $admission->previous_school,
+                'previous_marks_obtained' => $admission->previous_marks_obtained,
+                'previous_marks_total' => $admission->previous_marks_total,
+
+                // The conversion date, not the date on the application: the
+                // matric result may be a year old, but they start today.
+                'admission_date' => now()->toDateString(),
+                'status' => 'active',
+            ]);
+
+            $admission->update([
+                'status' => 'enrolled',
+                'enrolled_student_profile_id' => $profile->id,
+            ]);
+
+            return $profile;
+        });
+
+        return redirect()
+            ->route('admin.students.show', $profile->id)
+            ->with(
+                'success',
+                "Student enrolled successfully. Login: {$profile->user->email} ".
+                "Password: {$password} — This password is shown only once, please note it down."
+            );
+    }
+
+    /**
+     * An email address for a converted student that nobody is using.
+     *
+     * Built from the applicant's own name so it is recognisable, with a
+     * random number to make it unique - two "Ahmed Khan"s in one college is
+     * not a rare thing.
+     *
+     * The collision check includes soft-deleted users, because the email
+     * index on users is not partial: a deleted account still holds its
+     * address, so ignoring them here would only defer the failure to an
+     * insert later. Five attempts is far more than the name space needs; the
+     * UUID fallback exists so a pathological case still enrols somebody
+     * rather than throwing at the worst possible moment.
+     */
+    private function generateUniqueEmail(string $name): string
+    {
+        $slug = Str::limit(Str::slug($name), 20, '');
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $email = $slug.'-'.random_int(1000, 9999).'@college.test';
+
+            if (! User::withTrashed()->where('email', $email)->exists()) {
+                return $email;
+            }
+        }
+
+        return Str::uuid()->toString().'@college.test';
+    }
+
+    /**
+     * The phone number to give the new account, or null if it is not free.
+     */
+    private function availablePhone(?string $phone): ?string
+    {
+        if ($phone === null || $phone === '') {
+            return null;
+        }
+
+        return User::withTrashed()->where('phone', $phone)->exists() ? null : $phone;
     }
 
     /**

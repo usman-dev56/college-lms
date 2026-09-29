@@ -154,6 +154,28 @@ export default function Show() {
         );
     };
 
+    /*
+        Converting creates a real login, so it confirms first. The wording
+        says the password is shown once, because it genuinely is: the server
+        flashes it to this one response and the User model hashes it, so
+        there is no second chance to read it. The admin needs to know that
+        before they click, not after.
+    */
+    const convert = () => {
+        if (
+            !window.confirm(
+                'Convert this application to a student? A login will be ' +
+                    'created and the password will be shown once.',
+            )
+        ) {
+            return;
+        }
+
+        router.patch(route('admin.admissions.convert', admission.id), {}, {
+            preserveScroll: true,
+        });
+    };
+
     const isPending = admission.status === 'pending';
     const isReviewed = admission.status === 'reviewed';
     const isAccepted = admission.status === 'accepted';
@@ -349,13 +371,31 @@ export default function Show() {
 
                             {isAccepted && (
                                 <>
-                                    {/*
-                                        Placeholder for sub-stage 3.3 Part 3.
-                                        Disabled rather than hidden, so the
-                                        office can see the step exists and is
-                                        coming instead of wondering where it
-                                        went.
-                                    */}
+                                    <button
+                                        type="button"
+                                        onClick={convert}
+                                        className={primaryAction}
+                                    >
+                                        Convert to Student
+                                    </button>
+                                    <p className="text-xs text-gray-500">
+                                        Creates a portal login and adds the
+                                        student to the roll. The password is
+                                        shown once, immediately after.
+                                    </p>
+                                </>
+                            )}
+
+                            {/*
+                                Every other status offers the button, disabled,
+                                rather than hiding it. An admin looking at a
+                                pending application should be able to see that
+                                conversion exists and that acceptance is what
+                                unlocks it, instead of wondering whether the
+                                feature is missing.
+                            */}
+                            {!isAccepted && !isEnrolled && (
+                                <>
                                     <button
                                         type="button"
                                         disabled
@@ -364,7 +404,8 @@ export default function Show() {
                                         Convert to Student
                                     </button>
                                     <p className="text-xs text-gray-500">
-                                        Available in a future update.
+                                        Only accepted applications can be
+                                        converted.
                                     </p>
                                 </>
                             )}

@@ -153,6 +153,22 @@ export default function Index() {
                             Applications received through the public form.
                         </p>
                     </div>
+                    {/*
+                        The merit list opens on a batch, so the link carries
+                        the newest one. It is hidden entirely when there are no
+                        batches at all, rather than linking somewhere that
+                        would render an empty page.
+                    */}
+                    {batches.length > 0 && (
+                        <Link
+                            href={route('admin.admissions.merit-list', {
+                                batch_id: batches[0].id,
+                            })}
+                            className="rounded-md bg-navy px-4 py-2 text-sm font-semibold uppercase tracking-wider text-white hover:bg-navy-dark"
+                        >
+                            View Merit List
+                        </Link>
+                    )}
                 </div>
             }
         >

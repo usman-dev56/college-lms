@@ -89,6 +89,15 @@ Route::middleware(['auth', 'role:admin'])
         // applicant's name and address by accident.
         Route::get('admissions', [AdmissionController::class, 'index'])
             ->name('admissions.index');
+
+        // The merit list is declared BEFORE admissions/{admission} on
+        // purpose. Laravel matches in declaration order, so the literal
+        // "merit-list" path has to come first or it would be swallowed by
+        // the {admission} wildcard and the controller would be asked to load
+        // an application whose id is the string "merit-list".
+        Route::get('admissions/merit-list', [AdmissionController::class, 'meritList'])
+            ->name('admissions.merit-list');
+
         Route::get('admissions/{admission}', [AdmissionController::class, 'show'])
             ->name('admissions.show');
         Route::patch('admissions/{admission}/review', [AdmissionController::class, 'review'])
@@ -97,6 +106,8 @@ Route::middleware(['auth', 'role:admin'])
             ->name('admissions.accept');
         Route::patch('admissions/{admission}/reject', [AdmissionController::class, 'reject'])
             ->name('admissions.reject');
+        Route::patch('admissions/{admission}/convert', [AdmissionController::class, 'convert'])
+            ->name('admissions.convert');
 
         // Student Batches
         // Cohorts, which are separate from academic sessions: a batch spans

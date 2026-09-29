@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             ClassSubjectSeeder::class,
             StudentBatchSeeder::class,
             StudentSeeder::class,
+            AdmissionSeeder::class,
         ]);
     }
 }
