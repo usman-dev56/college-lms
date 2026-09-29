@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
@@ -75,6 +76,44 @@ class StudentProfile extends Model
     public function batch(): BelongsTo
     {
         return $this->belongsTo(StudentBatch::class, 'batch_id');
+    }
+
+    /**
+     * Every enrollment this student has ever had.
+     *
+     * Includes soft-deleted and non-active rows: this is the history, and a
+     * transferred or withdrawn enrollment is exactly the sort of record a
+     * student's page wants to show. The live one is currentEnrollment().
+     */
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class, 'student_profile_id');
+    }
+
+    /**
+     * The class this student sits in during the active session, or null.
+     *
+     * A method rather than a hasOne because "the active session" is a runtime
+     * fact, not a column on the student. A hasOne would be resolved once when
+     * the relation was loaded and would keep answering for whichever session
+     * happened to be active at that moment.
+     *
+     * Null is a normal answer: a student is enrolled into a class for the
+     * coming session, and until the office puts them in one they are on the
+     * roll but not in a class.
+     */
+    public function currentEnrollment(): ?Enrollment
+    {
+        $activeSession = AcademicSession::current();
+
+        if (! $activeSession) {
+            return null;
+        }
+
+        return $this->enrollments()
+            ->where('academic_session_id', $activeSession->id)
+            ->where('status', 'active')
+            ->first();
     }
 
     /**

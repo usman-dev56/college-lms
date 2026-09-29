@@ -5,7 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class AcademicSession extends Model
 {
@@ -42,6 +44,18 @@ class AcademicSession extends Model
     }
 
     /**
+     * Every enrollment made in this session.
+     *
+     * The counterweight to the roll: a session is the unit the college
+     * reports on, and "how many students did we have this year" is answered
+     * from here.
+     */
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    /**
      * Return the currently active session, or null if none is set.
      */
     public static function current(): ?self
@@ -57,7 +71,7 @@ class AcademicSession extends Model
      */
     public function activate(): void
     {
-        \Illuminate\Support\Facades\DB::transaction(function () {
+        DB::transaction(function () {
             static::query()->where('id', '!=', $this->id)->update(['is_active' => false]);
             $this->update(['is_active' => true]);
         });

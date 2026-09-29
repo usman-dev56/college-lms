@@ -102,6 +102,29 @@ class ClassModel extends Model
     }
 
     /**
+     * Every enrollment into this class, including past ones.
+     *
+     * The raw relation: a caller has to add its own status filter. The roster
+     * wants the live rows only, and activeEnrollmentCount() does that for the
+     * common case.
+     */
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class, 'class_id');
+    }
+
+    /**
+     * How many students are currently on this class's roll.
+     *
+     * Soft-deleted enrollments are already excluded by the relation, so this
+     * matches exactly what the roster page lists.
+     */
+    public function activeEnrollmentCount(): int
+    {
+        return $this->enrollments()->where('status', 'active')->count();
+    }
+
+    /**
      * Scope: only active classes.
      */
     public function scopeActive(Builder $query): Builder

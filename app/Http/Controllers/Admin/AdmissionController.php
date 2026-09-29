@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectAdmissionRequest;
+use App\Models\AcademicSession;
 use App\Models\Admission;
+use App\Models\ClassModel;
+use App\Models\Enrollment;
 use App\Models\Stream;
 use App\Models\StudentBatch;
 use App\Models\StudentProfile;
@@ -376,6 +379,24 @@ class AdmissionController extends Controller
                 'status' => 'active',
             ]);
 
+            /*
+                Best-effort placement in a class.
+
+                An accepted applicant should not have to be put in a class by
+                hand before they can be marked enrolled, so the obvious
+                target is used: a Grade 11 class in the active session, in
+                the stream they applied for.
+
+                A miss is not an error. Not every stream runs a Grade 11
+                section in every session, and the office will place the
+                student themselves; refusing to enrol somebody because no
+                class matched would be worse than leaving them on the roll
+                without one. There is deliberately no message about it - the
+                admin can see the empty enrollment card on the student page
+                and act on it.
+            */
+            $this->autoEnroll($profile, $admission);
+
             $admission->update([
                 'status' => 'enrolled',
                 'enrolled_student_profile_id' => $profile->id,
@@ -391,6 +412,63 @@ class AdmissionController extends Controller
                 "Student enrolled successfully. Login: {$profile->user->email} ".
                 "Password: {$password} — This password is shown only once, please note it down."
             );
+    }
+
+    /**
+     * Put a newly converted student into a class, if there is an obvious one.
+     *
+     * The target is a Grade 11 class in the active session, in the stream
+     * the applicant applied for: admissions at this college are for new
+     * Grade 11 students, so that is the only combination that is ever right.
+     * Grade 12 transfers would need a different rule and a different entry
+     * point.
+     *
+     * Only active classes are considered. A class left switched off is one
+     * the office is not currently teaching, and quietly filling it would
+     * put a student somewhere nobody would look for them.
+     *
+     * Silently does nothing when there is no match, and when the student
+     * somehow already has an enrollment this session. The partial unique
+     * index would reject the second insert; checking first keeps a manual
+     * placement from being undone by a later conversion.
+     */
+    private function autoEnroll(StudentProfile $profile, Admission $admission): void
+    {
+        $session = AcademicSession::current();
+
+        if ($session === null) {
+            return;
+        }
+
+        $class = ClassModel::query()
+            ->where('academic_session_id', $session->id)
+            ->where('stream_id', $admission->stream_applied_id)
+            ->where('grade_level', 11)
+            ->where('is_active', true)
+            ->orderBy('section')
+            ->first();
+
+        if ($class === null) {
+            return;
+        }
+
+        $alreadyEnrolled = Enrollment::query()
+            ->where('student_profile_id', $profile->id)
+            ->where('academic_session_id', $session->id)
+            ->where('status', 'active')
+            ->exists();
+
+        if ($alreadyEnrolled) {
+            return;
+        }
+
+        Enrollment::create([
+            'student_profile_id' => $profile->id,
+            'class_id' => $class->id,
+            'academic_session_id' => $class->academic_session_id,
+            'enrolled_at' => now()->toDateString(),
+            'status' => 'active',
+        ]);
     }
 
     /**

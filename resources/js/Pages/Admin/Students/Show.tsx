@@ -36,16 +36,20 @@ type ShowStudentPageProps = {
     student: StudentData;
 
     /**
-     * Class enrollments. Always empty in 3.2 - the enrollments table does
-     * not exist until 3.4. Typed as the shape the relation will return
-     * rather than `never[]`, so the card below is written once against the
-     * real thing instead of being rewritten when it lands.
+     * The class the student is in during the active session, or null. Null
+     * is the normal state for somebody who has been admitted but not yet
+     * put in a class.
      */
-    enrollments: {
+    currentEnrollment: {
         id: number;
-        class_id: number;
-        class_display_name: string;
-    }[];
+        class_display_name: string | null;
+        session_name: string | null;
+        enrolled_at: string | null;
+        status: string;
+    } | null;
+
+    /** How many enrollments the student has ever had. */
+    totalEnrollments: number;
 };
 
 const cardClass = 'rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200';
@@ -100,7 +104,7 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 export default function Show() {
-    const { student, enrollments } =
+    const { student, currentEnrollment, totalEnrollments } =
         usePage<PageProps<ShowStudentPageProps>>().props;
 
     const displayName = student.name ?? 'Unknown Student';
@@ -267,30 +271,60 @@ export default function Show() {
                         </h3>
 
                         {/*
-                            Both cards below are placeholders for sub-stages
-                            that have not been built yet. They are shown as
-                            empty states rather than hidden, because a student
-                            with no enrollment is the normal state right now
-                            and an admin needs to know the feature is coming
-                            rather than wonder whether the page is broken.
+                            The current class, or an honest empty state. A
+                            student is enrolled into a class for the coming
+                            session, and until the office puts them in one
+                            they are on the roll but not in a class - which is
+                            a real state, not an error.
                         */}
-                        {enrollments.length === 0 ? (
-                            <p className="mt-4 rounded-md bg-surface p-4 text-sm text-gray-600 ring-1 ring-gray-200">
-                                Enrollment into classes will be available in a
-                                future update.
-                            </p>
+                        {currentEnrollment === null ? (
+                            <>
+                                <p className="mt-4 rounded-md bg-surface p-4 text-sm text-gray-600 ring-1 ring-gray-200">
+                                    Not enrolled in any class yet.
+                                </p>
+                                <p className="mt-2 text-xs text-gray-500">
+                                    Enroll from the class roster.
+                                </p>
+                            </>
                         ) : (
-                            <ul className="mt-4 space-y-2">
-                                {enrollments.map((enrollment) => (
-                                    <li
-                                        key={enrollment.id}
-                                        className="text-sm text-gray-800"
-                                    >
-                                        {enrollment.class_display_name}
-                                    </li>
-                                ))}
-                            </ul>
+                            <dl className="mt-4 space-y-3">
+                                <Row
+                                    label="Class"
+                                    value={
+                                        currentEnrollment.class_display_name
+                                    }
+                                />
+                                <Row
+                                    label="Session"
+                                    value={currentEnrollment.session_name}
+                                />
+                                <Row
+                                    label="Enrolled At"
+                                    value={currentEnrollment.enrolled_at}
+                                />
+                            </dl>
                         )}
+
+                        {/*
+                            The history link is always there, even with no
+                            current enrollment, because a student who has
+                            been moved between classes has a history worth
+                            reading and no current class to click through from.
+                        */}
+                        <p className="mt-4 border-t border-gray-100 pt-4 text-sm">
+                            <Link
+                                href={route(
+                                    'admin.students.enrollments.index',
+                                    student.id,
+                                )}
+                                className="font-medium text-navy hover:text-gold"
+                            >
+                                View full enrollment history
+                            </Link>
+                            <span className="ml-2 text-xs text-gray-500">
+                                ({totalEnrollments} total)
+                            </span>
+                        </p>
                     </div>
 
                     <div className={cardClass}>

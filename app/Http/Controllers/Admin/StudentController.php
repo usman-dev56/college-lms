@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreStudentRequest;
 use App\Http\Requests\Admin\UpdateStudentRequest;
+use App\Models\Enrollment;
 use App\Models\StudentBatch;
 use App\Models\StudentProfile;
 use App\Models\User;
@@ -211,11 +212,63 @@ class StudentController extends Controller
                 ],
             ],
 
-            // Enrollments arrive in sub-stage 3.4. The key is sent empty
-            // rather than omitted so the page already has the shape it will
-            // need once the relation exists.
-            'enrollments' => [],
+            /*
+                The class the student is in during the active session, or
+                null. Resolved through the model rather than an eager load
+                because "the active session" is a runtime fact - a hasOne
+                would be resolved once and then keep answering for whichever
+                session was active at that moment.
+            */
+            'currentEnrollment' => $this->enrollmentSummary($student->currentEnrollment()),
+
+            /*
+                The full list of enrollments, across every session.
+
+                A real list rather than a placeholder, so it is empty only
+                when the student genuinely has never been enrolled. The page
+                reads currentEnrollment for the card; this is what the history
+                link and the count are built from.
+            */
+            'enrollments' => $student->enrollments()
+                ->withTrashed()
+                ->with(['classModel', 'academicSession'])
+                ->get()
+                ->map(fn (Enrollment $enrollment) => [
+                    'id' => $enrollment->id,
+                    'class_id' => $enrollment->class_id,
+                    'class_display_name' => $enrollment->classModel?->displayName(),
+                    'session_name' => $enrollment->academicSession?->name,
+                    'status' => $enrollment->status,
+                ])
+                ->all(),
+
+            // Every enrollment ever, not just the current one. The page shows
+            // this as a total so a student who has moved class can be told
+            // apart from one who has never been anywhere.
+            'totalEnrollments' => $student->enrollments()->count(),
         ]);
+    }
+
+    /**
+     * An enrollment as the student page needs it, or null.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function enrollmentSummary(?Enrollment $enrollment): ?array
+    {
+        if ($enrollment === null) {
+            return null;
+        }
+
+        $enrollment->loadMissing(['classModel', 'academicSession']);
+
+        return [
+            'id' => $enrollment->id,
+            'class_display_name' => $enrollment->classModel?->displayName(),
+            'session_name' => $enrollment->academicSession?->name,
+            'enrolled_at' => $enrollment->enrolled_at?->toDateString(),
+            'status' => $enrollment->status,
+        ];
     }
 
     /**

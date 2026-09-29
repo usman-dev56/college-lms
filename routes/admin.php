@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdmissionController;
 use App\Http\Controllers\Admin\ClassController;
 use App\Http\Controllers\Admin\ClassSubjectController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\EnrollmentController;
 use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\StreamController;
 use App\Http\Controllers\Admin\StudentBatchController;
@@ -115,4 +116,27 @@ Route::middleware(['auth', 'role:admin'])
         // batch is read from the list, and its students arrive in 3.2.
         Route::resource('student-batches', StudentBatchController::class)
             ->except(['show']);
+
+        // Class roster and enrollment
+        // The class routes sit at the end of the group on purpose. They are
+        // distinct paths (/classes/{class}/enrollments), so they cannot
+        // collide with the classes resource - but they are placed after the
+        // assignments and timetable routes for the same reason those were
+        // grouped together earlier: keeping one class's sub-pages in one
+        // block reads better than interleaving them.
+        Route::get('classes/{class}/enrollments', [EnrollmentController::class, 'index'])
+            ->name('classes.enrollments.index');
+        Route::post('classes/{class}/enrollments', [EnrollmentController::class, 'store'])
+            ->name('classes.enrollments.store');
+
+        // The bare DELETE on enrollments must come before the one with a
+        // parameter, or Laravel would read "enrollments" as an {enrollment}
+        // id and try to find an enrollment with that name.
+        Route::delete('enrollments', [EnrollmentController::class, 'bulkUnenroll'])
+            ->name('enrollments.bulk-unenroll');
+        Route::delete('enrollments/{enrollment}', [EnrollmentController::class, 'destroy'])
+            ->name('enrollments.destroy');
+
+        Route::get('students/{student}/enrollments', [EnrollmentController::class, 'studentHistory'])
+            ->name('students.enrollments.index');
     });
