@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -28,6 +29,7 @@ class StudentBatch extends Model
         'start_grade',
         'expected_graduation_year',
         'is_active',
+        'admissions_open',
         'notes',
     ];
 
@@ -40,6 +42,7 @@ class StudentBatch extends Model
             'start_grade' => 'integer',
             'expected_graduation_year' => 'integer',
             'is_active' => 'boolean',
+            'admissions_open' => 'boolean',
         ];
     }
 

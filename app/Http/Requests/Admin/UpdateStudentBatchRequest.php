@@ -45,6 +45,7 @@ class UpdateStudentBatchRequest extends FormRequest
                 'max:2100',
             ],
             'is_active' => ['boolean'],
+            'admissions_open' => ['boolean'],
             'notes' => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -71,6 +72,7 @@ class UpdateStudentBatchRequest extends FormRequest
                 ? trim($this->input('name'))
                 : $this->input('name'),
             'is_active' => $this->boolean('is_active'),
+            'admissions_open' => $this->boolean('admissions_open'),
         ]);
     }
 }
