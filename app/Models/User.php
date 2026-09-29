@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -40,6 +41,19 @@ class User extends Authenticatable
     public function teacherAssignments(): HasMany
     {
         return $this->hasMany(ClassSubject::class, 'teacher_id');
+    }
+
+    /**
+     * The student detail attached to this account.
+     *
+     * A hasOne, not a belongsTo, because the profile is the many-to-one side:
+     * every student has exactly one profile, and the profile points back at
+     * the account. Null on an account that is not a student, so anything
+     * reading a student profile must handle that.
+     */
+    public function studentProfile(): HasOne
+    {
+        return $this->hasOne(StudentProfile::class);
     }
 
     /**

@@ -97,16 +97,15 @@ class StudentBatch extends Model
         return $currentGrade > 12 ? null : $currentGrade;
     }
 
-    /*
-     * Sub-stage 3.2 adds the students on this batch:
+    /**
+     * The students admitted into this batch.
      *
-     *     public function studentProfiles(): HasMany
-     *     {
-     *         return $this->hasMany(StudentProfile::class, 'batch_id');
-     *     }
-     *
-     * It stays a comment until then: the student_profiles table does not
-     * exist yet, so a real method could only fail later. The delete guard in
-     * StudentBatchController looks for it with method_exists().
+     * A batch holds its students for its whole life: a cohort that was 15
+     * strong on admission is still the same 15 rows in its final year, which
+     * is what makes a batch different from a class.
      */
+    public function studentProfiles(): HasMany
+    {
+        return $this->hasMany(StudentProfile::class, 'batch_id');
+    }
 }
