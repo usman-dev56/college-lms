@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Student\DashboardController;
+use App\Http\Controllers\Student\ProfileController;
 use App\Http\Controllers\Student\TimetableController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,6 +10,10 @@ Route::middleware(['auth', 'role:student'])
     ->name('student.')
     ->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+        // The student's own record, read-only. No route parameter, so there
+        // is no id to tamper with.
+        Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
 
         Route::get('/timetable', [TimetableController::class, 'index'])->name('timetable');
     });
