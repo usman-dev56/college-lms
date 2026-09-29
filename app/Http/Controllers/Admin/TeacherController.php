@@ -39,12 +39,15 @@ class TeacherController extends Controller
             ->where('role', UserRole::Teacher->value)
             ->when($filters['search'] !== '', function (Builder $query) use ($filters): void {
                 $query->where(function (Builder $query) use ($filters): void {
-                    // LIKE rather than ILIKE: PostgreSQL folds it to
-                    // case-insensitive, and SQLite - which the test suite
-                    // runs on - is case-insensitive for ASCII by default, so
-                    // one expression works on both.
-                    $query->where('name', 'like', '%'.$filters['search'].'%')
-                        ->orWhere('email', 'like', '%'.$filters['search'].'%');
+                    // ILIKE, not LIKE: PostgreSQL's LIKE is case-sensitive,
+                    // so searching for "ahmed" would never find "Ahmed Khan".
+                    // The term is bound rather than interpolated, and the
+                    // orWhere stays inside this closure so it cannot escape
+                    // the filters wrapped around it.
+                    $term = '%'.$filters['search'].'%';
+
+                    $query->where('name', 'ilike', $term)
+                        ->orWhere('email', 'ilike', $term);
                 });
             })
             ->when($filters['subject_id'] !== null, function (Builder $query) use ($filters): void {

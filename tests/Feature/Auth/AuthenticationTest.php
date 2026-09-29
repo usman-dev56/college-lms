@@ -27,7 +27,10 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        // Users are redirected to their role-specific dashboard. The factory
+        // user defaults to the student role, so the redirect target is the
+        // student dashboard.
+        $response->assertRedirect(route('student.dashboard', absolute: false));
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
