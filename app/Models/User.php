@@ -57,6 +57,21 @@ class User extends Authenticatable
     }
 
     /**
+     * Every attendance mark this account wrote as a teacher.
+     *
+     * Named markedAttendances rather than attendances, because "attendance"
+     * already means the marks this user received as a student - a person can
+     * be both a teacher and a student of the college, and the two must not be
+     * confused on a record that decides eligibility.
+     *
+     * Empty on every account that is not a teacher.
+     */
+    public function markedAttendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'marked_by');
+    }
+
+    /**
      * Check if the user is an administrator.
      */
     public function isAdmin(): bool

@@ -69,6 +69,17 @@ class ClassSubject extends Model
     }
 
     /**
+     * Every mark recorded against this teaching assignment.
+     *
+     * This is the register for one subject in one class, which is the unit a
+     * teacher marks a period by period.
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'class_subject_id');
+    }
+
+    /**
      * The timetable cells this assignment is scheduled into.
      */
     public function timetableSlots(): HasMany

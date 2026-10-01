@@ -91,6 +91,19 @@ class StudentProfile extends Model
     }
 
     /**
+     * Every mark on this student's attendance record.
+     *
+     * Includes soft-deleted and withdrawn rows: this is a legal history, and a
+     * mark the office later withdrew is exactly the kind of record a disputed
+     * eligibility question needs to show. Live marks are the ones the default
+     * SoftDeletes scope leaves in.
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'student_profile_id');
+    }
+
+    /**
      * The class this student sits in during the active session, or null.
      *
      * A method rather than a hasOne because "the active session" is a runtime

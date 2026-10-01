@@ -52,6 +52,18 @@ class Period extends Model
     }
 
     /**
+     * Every mark recorded for this period across all classes that ran it.
+     *
+     * On the period row rather than the timetable slot: the same period is
+     * taught in several classes at once, and "everybody marked during period 3
+     * on Tuesday" is a question about the period and the date together.
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'period_id');
+    }
+
+    /**
      * The timetable cells scheduled into this period.
      */
     public function timetableSlots(): HasMany
