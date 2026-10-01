@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Attendance;
 use App\Models\ClassModel;
 use App\Models\Enrollment;
+use App\Models\StudentProfile;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -229,7 +230,139 @@ class AttendanceService
      * keeps the whole statement free of the status bindings; the names are
      * interpolated from the model's own constants, so there is still only one
      * place a status is spelled out, and they are not user input.
+/**
+     * Every active student whose attendance falls below the threshold.
      *
+     * This is the list the office works from before the board result: a
+     * student under the mark risks being barred from sitting the exams, and
+     * somebody has to telephone their parents. It is deliberately the whole
+     * roll rather than one class, because a defaulter is a fact about a
+     * student and does not stop at the edge of their class.
+     *
+     * A student with no attendance records at all is NOT a defaulter. They
+     * have no percentage rather than a low one, and listing them as though
+     * they had missed everything would name a parent over a problem that does
+     * not exist yet.
+     *
+     * Read-only: every percentage comes from summaryForStudent(), so the list
+     * here and the number on a student's own page cannot disagree.
+     *
+     * @param  array{batch_id?: int|null, class_id?: int|null, stream_id?: int|null}  $filters
+     * @return array{students: array<int, array<string, mixed>>, by_class: array<int, array<string, mixed>>, by_batch: array<int, array<string, mixed>>, total: int}
+     */
+    public function defaulters(array $filters = []): array
+    {
+        $students = StudentProfile::query()
+            ->where('status', 'active')
+            ->whereHas('user', fn (Builder $query) => $query->where('is_active', true))
+            ->when(
+                $filters['batch_id'] ?? null,
+                fn (Builder $query, int $batchId) => $query->where('batch_id', $batchId),
+            )
+            ->with(['user', 'batch'])
+            ->get();
+
+        $rows = [];
+
+        foreach ($students as $student) {
+            $summary = $this->summaryForStudent($student->id);
+
+            $percentage = $summary['overall']['percentage'];
+
+            // Null is skipped on purpose: nothing marked is unknown, not low.
+            if ($percentage === null || ! $this->isBelowThreshold($percentage)) {
+                continue;
+            }
+
+            $enrollment = $student->currentEnrollment();
+            $class = $enrollment?->classModel;
+
+            if (isset($filters['class_id']) && $filters['class_id'] !== null) {
+                if ((int) ($class?->id ?? 0) !== (int) $filters['class_id']) {
+                    continue;
+                }
+            }
+
+            if (isset($filters['stream_id']) && $filters['stream_id'] !== null) {
+                if ((int) ($class?->stream_id ?? 0) !== (int) $filters['stream_id']) {
+                    continue;
+                }
+            }
+
+            $rows[] = [
+                'student_profile_id' => $student->id,
+                'roll_number' => (string) ($student->roll_number ?? ''),
+                'student_name' => (string) ($student->user?->name ?? 'Unknown Student'),
+                'batch_id' => (int) $student->batch_id,
+                'batch_name' => (string) ($student->batch?->name ?? ''),
+
+                // Null when the student has no live enrollment: they are on
+                // the roll but not in a class, which is a real state and the
+                // page has to be able to say "not enrolled" rather than blank.
+                'class_id' => $class?->id !== null ? (int) $class->id : null,
+                'class_display_name' => $class?->displayName(),
+
+                'percentage' => $percentage,
+
+                // How far below the mark the student is, which is what a
+                // phone call is actually about: not "70%", but "5% short".
+                'shortfall' => round(self::THRESHOLD - $percentage, 2),
+
+                'present' => $summary['overall']['present'],
+                'absent' => $summary['overall']['absent'],
+                'late' => $summary['overall']['late'],
+                'leave' => $summary['overall']['leave'],
+                'total' => $summary['overall']['total'],
+            ];
+        }
+
+        // Worst first. The list exists to be worked down, and the students
+        // furthest from the mark are the ones who have to be called first.
+        usort(
+            $rows,
+            fn (array $a, array $b): int => $a['percentage'] <=> $b['percentage'],
+        );
+
+        return [
+            'students' => $rows,
+            'by_class' => $this->groupCounts($rows, 'class_id', 'class_display_name'),
+            'by_batch' => $this->groupCounts($rows, 'batch_id', 'batch_name'),
+            'total' => count($rows),
+        ];
+    }
+
+    /**
+     * Count the rows in a group and name each group.
+     *
+     * A student with no class is grouped under null, which the page renders
+     * as "Not enrolled" rather than dropping: they are still defaulters and
+     * still need to be contacted.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function groupCounts(array $rows, string $key, string $labelKey): array
+    {
+        $groups = [];
+
+        foreach ($rows as $row) {
+            $id = $row[$key];
+
+            if (! isset($groups[$id])) {
+                $groups[$id] = [
+                    $key => $id,
+                    $labelKey => $row[$labelKey],
+                    'defaulter_count' => 0,
+                ];
+            }
+
+            $groups[$id]['defaulter_count']++;
+        }
+
+        return array_values($groups);
+    }
+
+    /**
      * COALESCE guards the empty group: with no rows SUM is null, and a null
      * cast to int would read as a gap rather than a zero.
      */

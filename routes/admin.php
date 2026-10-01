@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AcademicSessionController;
 use App\Http\Controllers\Admin\AdmissionController;
 use App\Http\Controllers\Admin\AttendanceController;
+use App\Http\Controllers\Admin\AttendanceReportController;
 use App\Http\Controllers\Admin\ClassController;
 use App\Http\Controllers\Admin\ClassSubjectController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -81,6 +82,20 @@ Route::middleware(['auth', 'role:admin'])
         // guards on the account's role, so a teacher or admin id is a 404
         // here too.
         Route::resource('students', StudentController::class);
+
+        // Attendance defaulters report.
+        //
+        // Declared BEFORE attendance/{attendance} for the same reason as
+        // bulk-update below: Laravel matches in declaration order, and the
+        // literal segment "attendance-defaulters" would otherwise be read as
+        // an attendance id.
+        Route::get('attendance-defaulters', [AttendanceReportController::class, 'defaulters'])
+            ->name('attendance.defaulters');
+
+        // After the list route, so "attendance-defaulters/export" is not
+        // swallowed by the literal "attendance-defaulters" above.
+        Route::get('attendance-defaulters/export', [AttendanceReportController::class, 'exportDefaulters'])
+            ->name('attendance.defaulters.export');
 
         // Attendance register and corrections.
         //
