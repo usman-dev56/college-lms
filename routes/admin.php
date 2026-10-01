@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AcademicSessionController;
 use App\Http\Controllers\Admin\AdmissionController;
+use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\ClassController;
 use App\Http\Controllers\Admin\ClassSubjectController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -80,6 +81,23 @@ Route::middleware(['auth', 'role:admin'])
         // guards on the account's role, so a teacher or admin id is a 404
         // here too.
         Route::resource('students', StudentController::class);
+
+        // Attendance register and corrections.
+        //
+        // The office's copy: the only place a submitted mark can be changed.
+        // Every action here writes to attendance_audits, so a correction is
+        // always attributable.
+        //
+        // bulk-update is declared BEFORE attendance/{attendance}, because
+        // Laravel matches in declaration order and the literal segment
+        // "bulk-update" would otherwise be read as an attendance id.
+        Route::post('attendance/bulk-update', [AttendanceController::class, 'bulkUpdate'])
+            ->name('attendance.bulk-update');
+
+        Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+        Route::get('attendance/{attendance}', [AttendanceController::class, 'show'])->name('attendance.show');
+        Route::patch('attendance/{attendance}', [AttendanceController::class, 'update'])->name('attendance.update');
+        Route::delete('attendance/{attendance}', [AttendanceController::class, 'destroy'])->name('attendance.destroy');
 
         // Admissions
         // Not a resource: applications arrive from the public form, so there

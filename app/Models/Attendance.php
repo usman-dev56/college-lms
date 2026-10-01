@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -126,6 +127,23 @@ class Attendance extends Model
     public function markedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'marked_by');
+    }
+
+    /**
+     * Every correction anybody has made to this record, oldest first.
+     *
+     * The reason this relation exists in a shape a page can render directly: a
+     * teacher cannot change a mark after submitting, so the only record of a
+     * change is here, and the admin who made it has to be able to see the
+     * whole trail at a glance.
+     *
+     * Note that these rows have no soft deletes - an audit entry is never
+     * withdrawn - so this relation needs withTrashed() on the attendance side
+     * to stay reachable after the record itself is soft deleted.
+     */
+    public function audits(): HasMany
+    {
+        return $this->hasMany(AttendanceAudit::class);
     }
 
     /**

@@ -62,6 +62,11 @@ const navItems: Record<User['role'], NavItem[]> = {
             routePattern: 'admin/students*',
         },
         {
+            label: 'Attendance',
+            routeName: 'admin.attendance.index',
+            routePattern: 'admin/attendance*',
+        },
+        {
             label: 'Admissions',
             routeName: 'admin.admissions.index',
             routePattern: 'admin/admissions*',
