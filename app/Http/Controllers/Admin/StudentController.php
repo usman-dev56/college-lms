@@ -10,6 +10,7 @@ use App\Models\Enrollment;
 use App\Models\StudentBatch;
 use App\Models\StudentProfile;
 use App\Models\User;
+use App\Services\AttendanceService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -246,6 +247,17 @@ class StudentController extends Controller
             // this as a total so a student who has moved class can be told
             // apart from one who has never been anywhere.
             'totalEnrollments' => $student->enrollments()->count(),
+
+            /*
+                The attendance summary, computed live.
+
+                The whole thing rather than just the overall figure: the card
+                shows the percentage, the per-status breakdown behind it, and
+                the weakest subjects, and all three have to come from the same
+                pass so the numbers on the card cannot contradict each other.
+            */
+            'attendanceSummary' => app(AttendanceService::class)
+                ->summaryForStudent($student->id),
         ]);
     }
 

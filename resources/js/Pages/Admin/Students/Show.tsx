@@ -32,6 +32,24 @@ interface StudentData {
     };
 }
 
+interface AttendanceSummary {
+    overall: {
+        present: number;
+        absent: number;
+        late: number;
+        leave: number;
+        total: number;
+        percentage: number | null;
+        is_below_threshold: boolean;
+    };
+    by_subject: {
+        class_subject_id: number;
+        subject_name: string;
+        percentage: number | null;
+        is_below_threshold: boolean;
+    }[];
+}
+
 type ShowStudentPageProps = {
     student: StudentData;
 
@@ -50,6 +68,9 @@ type ShowStudentPageProps = {
 
     /** How many enrollments the student has ever had. */
     totalEnrollments: number;
+
+    /** Live attendance summary, or null if the service returned nothing. */
+    attendanceSummary: AttendanceSummary | null;
 };
 
 const cardClass = 'rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200';
@@ -104,10 +125,27 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 export default function Show() {
-    const { student, currentEnrollment, totalEnrollments } =
+    const { student, currentEnrollment, totalEnrollments, attendanceSummary } =
         usePage<PageProps<ShowStudentPageProps>>().props;
 
     const displayName = student.name ?? 'Unknown Student';
+
+    const attendance = attendanceSummary ?? null;
+
+    /*
+        The three subjects dragging this student down, worst first.
+
+        Only subjects that are actually below the threshold are listed: a
+        "weakest subjects" list that includes a 95% would bury the two that
+        matter under four that are fine, and the office reads this card
+        precisely when something is wrong.
+    */
+    const weakestSubjects = (attendance?.by_subject ?? [])
+        .filter((row) => row.is_below_threshold)
+        .sort(
+            (a, b) => (a.percentage ?? 0) - (b.percentage ?? 0),
+        )
+        .slice(0, 3);
 
     // A percentage is only meaningful when both halves of the pair are
     // there; one without the other is shown as a dash rather than a
@@ -328,13 +366,91 @@ export default function Show() {
                     </div>
 
                     <div className={cardClass}>
-                        <h3 className="font-serif text-base font-semibold text-navy">
-                            Attendance
-                        </h3>
-                        <p className="mt-4 rounded-md bg-surface p-4 text-sm text-gray-600 ring-1 ring-gray-200">
-                            Attendance tracking will be available in a future
-                            update.
-                        </p>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <h3 className="font-serif text-base font-semibold text-navy">
+                                Attendance
+                            </h3>
+
+                            {attendance &&
+                                attendance.overall.total > 0 &&
+                                (attendance.overall.is_below_threshold ? (
+                                    <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
+                                        At Risk
+                                    </span>
+                                ) : (
+                                    <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                                        Above threshold
+                                    </span>
+                                ))}
+                        </div>
+
+                        {!attendance || attendance.overall.total === 0 ? (
+                            <p className="mt-4 rounded-md bg-surface p-4 text-sm text-gray-600 ring-1 ring-gray-200">
+                                No attendance recorded yet.
+                            </p>
+                        ) : (
+                            <>
+                                <p
+                                    className={
+                                        'mt-3 font-serif text-3xl font-semibold ' +
+                                        (attendance.overall.is_below_threshold
+                                            ? 'text-red-600'
+                                            : 'text-navy')
+                                    }
+                                >
+                                    {attendance.overall.percentage?.toFixed(2)}%
+                                </p>
+
+                                <dl className="mt-4 space-y-2">
+                                    <Row
+                                        label="Present"
+                                        value={attendance.overall.present}
+                                    />
+                                    <Row
+                                        label="Absent"
+                                        value={attendance.overall.absent}
+                                    />
+                                    <Row
+                                        label="Late"
+                                        value={attendance.overall.late}
+                                    />
+                                    <Row
+                                        label="Leave"
+                                        value={attendance.overall.leave}
+                                    />
+                                    <Row
+                                        label="Total Periods"
+                                        value={attendance.overall.total}
+                                    />
+                                </dl>
+
+                                {weakestSubjects.length > 0 && (
+                                    <div className="mt-4 border-t border-gray-100 pt-4">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            Weakest Subjects
+                                        </p>
+                                        <ul className="mt-2 space-y-1">
+                                            {weakestSubjects.map((row) => (
+                                                <li
+                                                    key={row.class_subject_id}
+                                                    className="flex items-center justify-between gap-3 text-sm"
+                                                >
+                                                    <span className="text-gray-700">
+                                                        {row.subject_name}
+                                                    </span>
+                                                    <span className="font-semibold text-red-600">
+                                                        {row.percentage?.toFixed(
+                                                            2,
+                                                        )}
+                                                        %
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

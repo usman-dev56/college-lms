@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\TimetableSlot;
+use App\Services\AttendanceService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -53,6 +54,7 @@ class DashboardController extends Controller
                 'todaySchedule' => [],
                 'weekSummary' => [],
                 'today_name' => self::DAYS[now()->dayOfWeekIso] ?? '',
+                'attendanceSummary' => null,
                 'message' => 'Your student profile has not been created yet. Please contact the administration.',
             ]);
         }
@@ -101,6 +103,16 @@ class DashboardController extends Controller
             // Sunday is not in DAYS, so a Sunday visit reads as blank rather
             // than as an out-of-range notice.
             'today_name' => self::DAYS[now()->dayOfWeekIso] ?? '',
+
+            /*
+                The whole summary, not just the overall figure. The dashboard
+                only shows the percentage, but the card needs the counts to
+                print "878/1095 present" underneath it, and computing the two
+                halves in two places would let them disagree.
+            */
+            'attendanceSummary' => app(AttendanceService::class)
+                ->summaryForStudent($student->id),
+
             'message' => null,
         ]);
     }

@@ -35,12 +35,26 @@ interface DaySummary {
     periods_count: number;
 }
 
+interface AttendanceSummary {
+    overall: {
+        present: number;
+        absent: number;
+        late: number;
+        leave: number;
+        total: number;
+        percentage: number | null;
+        is_below_threshold: boolean;
+    };
+    by_subject: unknown[];
+}
+
 type StudentDashboardPageProps = {
     student: StudentSummary | null;
     classInfo: ClassInfo | null;
     todaySchedule: ScheduleEntry[];
     weekSummary: DaySummary[];
     today_name: string;
+    attendanceSummary: AttendanceSummary | null;
     message: string | null;
 };
 
@@ -102,6 +116,7 @@ export default function Dashboard() {
         weekSummary,
         today_name,
         message,
+        attendanceSummary,
     } = usePage<PageProps<StudentDashboardPageProps>>().props;
 
     // Sunday has no entry in the summary, so a Sunday visit matches nothing
@@ -136,7 +151,7 @@ export default function Dashboard() {
             ) : (
                 <div className="flex flex-col gap-4">
                     {/* Summary row */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <SummaryCard
                             label="Roll Number"
                             value={student?.roll_number ?? ''}
@@ -149,6 +164,51 @@ export default function Dashboard() {
                             label="Class"
                             value={classInfo?.display_name ?? ''}
                         />
+                        {/*
+                            Clickable, because a percentage on its own is an
+                            answer without a way to act on it - the breakdown
+                            and the per-subject table are one click away.
+                        */}
+                        <Link
+                            href={route('student.attendance')}
+                            className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200 transition hover:ring-2 hover:ring-navy"
+                        >
+                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                Attendance
+                            </p>
+
+                            {attendanceSummary !== null &&
+                            attendanceSummary.overall.total > 0 ? (
+                                <p
+                                    className={
+                                        'mt-2 font-serif text-xl font-semibold ' +
+                                        (attendanceSummary.overall
+                                            .is_below_threshold
+                                            ? 'text-red-600'
+                                            : 'text-navy')
+                                    }
+                                >
+                                    {attendanceSummary.overall.percentage !==
+                                    null
+                                        ? `${attendanceSummary.overall.percentage.toFixed(2)}%`
+                                        : ''}
+                                    <span className="mt-1 block text-xs font-normal text-gray-500">
+                                        {attendanceSummary.overall.present}/
+                                        {attendanceSummary.overall.total} present
+                                    </span>
+                                    {attendanceSummary.overall
+                                        .is_below_threshold && (
+                                        <span className="mt-2 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                                            At Risk
+                                        </span>
+                                    )}
+                                </p>
+                            ) : (
+                                <p className="mt-2 font-serif text-xl font-semibold text-gray-400">
+                                    No records
+                                </p>
+                            )}
+                        </Link>
                     </div>
 
                     {/* Today's schedule and the week at a glance */}

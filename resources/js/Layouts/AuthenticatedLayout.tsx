@@ -100,6 +100,11 @@ const navItems: Record<User['role'], NavItem[]> = {
             routeName: 'student.timetable',
             routePattern: 'student/timetable',
         },
+        {
+            label: 'Attendance',
+            routeName: 'student.attendance',
+            routePattern: 'student/attendance',
+        },
     ],
 };
 
