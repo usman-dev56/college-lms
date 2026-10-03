@@ -7,7 +7,6 @@ use App\Models\ClassModel;
 use App\Models\Stream;
 use App\Models\StudentBatch;
 use App\Services\AttendanceService;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -151,24 +150,20 @@ class AttendanceReportController extends Controller
     /**
      * One class, one day.
      *
-     * A class is required rather than defaulted, because "today's attendance"
-     * with no class named is the whole college at once - a different report, and
-     * one that would need a date range to be readable.
+     * A class is required to compute the report, but the page still renders
+     * without one: the React page shows an empty state and a class dropdown,
+     * so the user can pick a class without being bounced away from the page.
      */
-    public function daily(Request $request): Response|RedirectResponse
+    public function daily(Request $request): Response
     {
         $filters = $this->dailyFilters($request);
 
-        if ($filters['class_id'] === null) {
-            return redirect()
-                ->route('admin.attendance.index')
-                ->with('error', 'Choose a class before opening the daily report.');
-        }
-
-        $report = app(AttendanceService::class)->dailyReport(
-            $filters['class_id'],
-            $filters['date'],
-        );
+        $report = $filters['class_id'] === null
+            ? null
+            : app(AttendanceService::class)->dailyReport(
+                $filters['class_id'],
+                $filters['date'],
+            );
 
         return Inertia::render('Admin/Reports/Attendance/Daily', [
             'report' => $report,
@@ -179,22 +174,21 @@ class AttendanceReportController extends Controller
 
     /**
      * One class across a range of dates.
+     *
+     * Same rule as the daily report: no class means an empty state, not a
+     * redirect, so the user stays on the report page with its filter visible.
      */
-    public function range(Request $request): Response|RedirectResponse
+    public function range(Request $request): Response
     {
         $filters = $this->rangeFilters($request);
 
-        if ($filters['class_id'] === null) {
-            return redirect()
-                ->route('admin.attendance.index')
-                ->with('error', 'Choose a class before opening the range report.');
-        }
-
-        $report = app(AttendanceService::class)->rangeReport(
-            $filters['class_id'],
-            $filters['from'],
-            $filters['to'],
-        );
+        $report = $filters['class_id'] === null
+            ? null
+            : app(AttendanceService::class)->rangeReport(
+                $filters['class_id'],
+                $filters['from'],
+                $filters['to'],
+            );
 
         return Inertia::render('Admin/Reports/Attendance/Range', [
             'report' => $report,
