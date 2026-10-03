@@ -4,9 +4,13 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\ClassModel;
+use App\Models\ClassSubject;
 use App\Models\Enrollment;
 use App\Models\StudentProfile;
+use App\Models\TimetableSlot;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 /**
  * Attendance percentages, computed live from the register.
@@ -365,6 +369,111 @@ class AttendanceService
     /**
      * COALESCE guards the empty group: with no rows SUM is null, and a null
      * cast to int would read as a gap rather than a zero.
+    /**
+     * One class, one day, broken down by period and by student.
+     *
+     * This is the register sheet the office asks for when a parent telephones:
+     * "was my son in school on Tuesday, and which periods did he miss". It is
+     * shaped around the timetable rather than around the marks, because a day at
+     * this college is a list of periods and a student attends or misses each one
+     * separately - an overall percentage for the day would hide exactly the
+     * detail the caller opened the page for.
+     *
+     * The period list comes from the timetable, not from the attendance rows, so
+     * an unmarked period still appears as a period with nothing in it. A day whose
+     * grid was never filled in comes back with no periods at all, which the page
+     * reports as such rather than as an attendance of zero.
+     *
+     * @return array<string, mixed>
+     */
+    public function dailyReport(int $classId, string $date): array
+    {
+        $class = ClassModel::with(['stream', 'academicSession'])->find($classId);
+
+        if ($class === null) {
+            return [
+                'class' => null,
+                'date' => $date,
+                'periods' => [],
+                'students' => [],
+                'overall' => $this->withPercentage($this->emptyTotals()),
+            ];
+        }
+
+        $slots = TimetableSlot::query()
+            ->where('class_id', $classId)
+            ->where('day_of_week', Carbon::parse($date)->dayOfWeekIso)
+            ->whereHas('period', fn (Builder $query) => $query->where('is_break', false))
+            ->with(['period', 'classSubject.subject', 'classSubject.teacher'])
+            ->get()
+            // Sorted in PHP on the handful of slots a day holds, rather than with a
+            // join to order by the related period's number.
+            ->sortBy(fn (TimetableSlot $slot) => $slot->period?->number ?? 0)
+            ->values();
+
+        /*
+            One query for the whole day, grouped by period, rather than a count
+            per period. Six periods would otherwise cost six round trips before
+            any row is written.
+        */
+        $perPeriod = Attendance::query()
+            ->where('attendance_date', $date)
+            ->whereIn(
+                'class_subject_id',
+                $slots->pluck('class_subject_id')->unique(),
+            )
+            ->selectRaw(
+                'class_subject_id, period_id,'
+                .$this->perStatusCountsSql()
+            )
+            ->groupBy('class_subject_id', 'period_id')
+            ->get()
+            ->keyBy(fn (object $row): string => $row->class_subject_id.'-'.$row->period_id);
+
+        $periods = $slots->map(function (TimetableSlot $slot) use ($perPeriod): array {
+            $row = $perPeriod->get($slot->class_subject_id.'-'.$slot->period_id);
+            $totals = $this->rowTotals($row);
+
+            return [
+                'period_id' => $slot->period_id,
+                'period_number' => $slot->period?->number,
+                'period_label' => $slot->period?->label,
+                'start_time' => $slot->period?->start_time?->format('H:i'),
+                'end_time' => $slot->period?->end_time?->format('H:i'),
+                'class_subject_id' => $slot->class_subject_id,
+                'subject_name' => $slot->classSubject?->subject?->name ?? 'Subject',
+                'subject_code' => $slot->classSubject?->subject?->code,
+                'teacher_name' => $slot->classSubject?->teacher?->name ?? 'Unassigned',
+                ...$totals,
+
+                'percentage' => $this->percentageFrom($totals),
+
+                // False when the teacher has not submitted the register at all,
+                // which is different from a submitted register of all absences.
+                'is_marked' => $totals['total'] > 0,
+            ];
+        })->values()->all();
+
+        $students = $this->dailyStudents($class, $date, $periods);
+
+        return [
+            'class' => [
+                'id' => $class->id,
+                'display_name' => $class->displayName(),
+                'grade_level' => $class->grade_level,
+                'section' => $class->section,
+                'stream_name' => $class->stream?->name ?? 'Unknown stream',
+                'session_name' => $class->academicSession?->name ?? '—',
+            ],
+            'date' => $date,
+            'periods' => $periods,
+            'students' => $students,
+            'overall' => $this->withPercentage($this->sumTotals($students)),
+        ];
+    }
+
+    /**
+     * The per-status count expressions every aggregate query shares.
      */
     private function perStatusCountsSql(): string
     {
@@ -467,5 +576,290 @@ class AttendanceService
         };
 
         return trim("{$ordinal} {$row->stream_name} {$row->section}");
+    }
+
+    /**
+     * The roll for a daily report, with each student's status for each period.
+     *
+     * The status rows are pulled once and keyed by student and period, then each
+     * student's grid is assembled in PHP. Fetching them per student would be a
+     * query per row on a page that is read in full every time it is opened.
+     *
+     * @param  array<int, array<string, mixed>>  $periods
+     * @return array<int, array<string, mixed>>
+     */
+    private function dailyStudents(
+        ClassModel $class,
+        string $date,
+        array $periods,
+    ): array {
+        $enrollments = Enrollment::query()
+            ->where('class_id', $class->id)
+            ->where('academic_session_id', $class->academic_session_id)
+            ->where('status', 'active')
+            ->with('studentProfile.user')
+            ->get();
+
+        $marks = Attendance::query()
+            ->where('attendance_date', $date)
+            ->whereIn(
+                'class_subject_id',
+                array_column($periods, 'class_subject_id'),
+            )
+            ->get(['student_profile_id', 'class_subject_id', 'period_id', 'status'])
+            ->keyBy(fn (object $row): string => $row->student_profile_id.'-'.$row->period_id);
+
+        return $enrollments
+            ->map(function (Enrollment $enrollment) use ($marks, $periods): array {
+                $student = $enrollment->studentProfile;
+                $totals = $this->emptyTotals();
+
+                $grid = array_map(function (array $period) use ($marks, $enrollment, &$totals): array {
+                    $mark = $marks->get($enrollment->student_profile_id.'-'.$period['period_id']);
+                    $status = $mark?->status;
+
+                    if ($status !== null) {
+                        $totals['total']++;
+
+                        // Only a real status is counted. A value the CHECK
+                        // constraint allows but this array does not name would
+                        // otherwise inflate the total without matching any count.
+                        if (array_key_exists($status, $totals)) {
+                            $totals[$status]++;
+                        }
+                    }
+
+                    return [
+                        'period_id' => $period['period_id'],
+                        'status' => $status,
+                        'subject_name' => $period['subject_name'],
+                    ];
+                }, $periods);
+
+                return [
+                    'student_profile_id' => $enrollment->student_profile_id,
+                    'roll_number' => (string) ($student?->roll_number ?? ''),
+                    'student_name' => (string) ($student?->user?->name ?? 'Unknown Student'),
+                    'periods' => $grid,
+                    ...$totals,
+                    'percentage' => $this->percentageFrom($totals),
+                ];
+            })
+            ->sortBy('roll_number')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Five zeroes, for a period or student that has nothing recorded yet.
+     *
+     * @return array{total: int, present: int, absent: int, late: int, leave: int}
+     */
+    private function emptyTotals(): array
+    {
+        return ['total' => 0, 'present' => 0, 'absent' => 0, 'late' => 0, 'leave' => 0];
+    }
+
+    /**
+     * Sum a set of per-row count arrays into one.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array{total: int, present: int, absent: int, late: int, leave: int}
+     */
+    private function sumTotals(array $rows): array
+    {
+        $sum = $this->emptyTotals();
+
+        foreach ($rows as $row) {
+            foreach (array_keys($sum) as $key) {
+                $sum[$key] += (int) ($row[$key] ?? 0);
+            }
+        }
+
+        return $sum;
+    }
+
+    /**
+     * Attach the percentage that follows from a set of counts.
+     *
+     * Null when the counts are all zero, so an unmarked period or student reads
+     * as unknown rather than as an attendance of nought percent.
+     *
+     * @param  array{total: int, present: int, absent: int, late: int, leave: int}  $totals
+     * @return array<string, mixed>
+     */
+    private function withPercentage(array $totals): array
+    {
+        return [
+            ...$totals,
+            'percentage' => $this->percentageFrom($totals),
+        ];
+    }
+
+    /**
+     * One class across a date range, per student and per subject.
+     *
+     * The question this answers is "how has this class done this term", which is
+     * different from the daily report in that it aggregates over weeks: the
+     * per-student figure is what a parent disputes and the per-subject figure is
+     * what tells the office whether one teacher's register is the problem.
+     *
+     * Two grouped queries serve the whole page - one by student, one by subject -
+     * rather than one per row. The marks are never loaded individually, because
+     * a month of a full class is thousands of rows and the page only needs the
+     * counts.
+     *
+     * @return array<string, mixed>
+     */
+    public function rangeReport(int $classId, string $from, string $to): array
+    {
+        $class = ClassModel::with('stream')->find($classId);
+
+        if ($class === null) {
+            return [
+                'class' => null,
+                'from' => $from,
+                'to' => $to,
+                'days_count' => 0,
+                'students' => [],
+                'by_subject' => [],
+                'overall' => $this->withPercentage($this->emptyTotals()),
+            ];
+        }
+
+        $classSubjectIds = ClassSubject::query()
+            ->where('class_id', $classId)
+            ->pluck('id');
+
+        $base = fn (): Builder => Attendance::query()
+            ->whereIn('class_subject_id', $classSubjectIds)
+            ->whereBetween('attendance_date', [$from, $to]);
+
+        $enrollments = Enrollment::query()
+            ->where('class_id', $classId)
+            ->where('academic_session_id', $class->academic_session_id)
+            ->where('status', 'active')
+            ->with('studentProfile.user')
+            ->get();
+
+        $perStudent = $base()
+            ->selectRaw('student_profile_id')
+            ->selectRaw($this->perStatusCountsSql())
+            ->groupBy('student_profile_id')
+            ->get()
+            ->keyBy('student_profile_id');
+
+        // Every enrolled student appears, marked or not: a class where two
+        // registers were never submitted is a fact the office needs to see.
+        $students = $enrollments
+            ->map(function (Enrollment $enrollment) use ($perStudent): array {
+                $student = $enrollment->studentProfile;
+                $totals = $this->rowTotals($perStudent->get($enrollment->student_profile_id));
+                $percentage = $this->percentageFrom($totals);
+
+                return [
+                    'student_profile_id' => $enrollment->student_profile_id,
+                    'roll_number' => (string) ($student?->roll_number ?? ''),
+                    'student_name' => (string) ($student?->user?->name ?? 'Unknown Student'),
+                    ...$totals,
+                    'percentage' => $percentage,
+                    'is_below_threshold' => $this->isBelowThreshold($percentage),
+                ];
+            })
+            ->sortBy('roll_number')
+            ->values()
+            ->all();
+
+        /*
+            getQuery() rather than get(): the grouped rows carry subject_name and
+            teacher_name, which the Attendance model has never heard of, so
+            hydrating one would hand back an object whose joined attributes are
+            all null and a subject column of blank cells.
+        */
+        $bySubject = $base()
+            ->join('class_subjects', 'class_subjects.id', '=', 'attendances.class_subject_id')
+            ->join('subjects', 'subjects.id', '=', 'class_subjects.subject_id')
+            ->join('users', 'users.id', '=', 'class_subjects.teacher_id')
+            // One selectRaw, because a second call appends its own comma and
+            // leaves a stray one between the two fragments.
+            ->selectRaw(
+                'class_subjects.id as class_subject_id,
+             subjects.name as subject_name,
+             subjects.code as subject_code,
+             users.name as teacher_name,'
+                .$this->perStatusCountsSql()
+            )
+            ->groupBy(
+                'class_subjects.id',
+                'subjects.name',
+                'subjects.code',
+                'users.name',
+            )
+            ->getQuery()
+            ->get()
+            ->map(function (object $row): array {
+                $totals = $this->rowTotals($row);
+
+                return [
+                    'class_subject_id' => (int) $row->class_subject_id,
+                    'subject_name' => (string) $row->subject_name,
+                    'subject_code' => $row->subject_code,
+                    'teacher_name' => (string) $row->teacher_name,
+                    ...$totals,
+                    'percentage' => $this->percentageFrom($totals),
+                ];
+            })
+            ->sortBy('subject_name')
+            ->values()
+            ->all();
+
+        return [
+            'class' => [
+                'id' => $class->id,
+                'display_name' => $class->displayName(),
+                'grade_level' => $class->grade_level,
+                'section' => $class->section,
+                'stream_name' => $class->stream?->name ?? 'Unknown stream',
+            ],
+            'from' => $from,
+            'to' => $to,
+
+            // School days rather than calendar days: a month-end range usually
+            // covers far fewer teaching days than its name suggests, and the card
+            // is there to stop that being misread as thin data.
+            'days_count' => $this->schoolDaysBetween($from, $to),
+            'students' => $students,
+            'by_subject' => $bySubject,
+            'overall' => $this->withPercentage($this->sumTotals($students)),
+        ];
+    }
+
+    /**
+     * How many Monday-to-Saturday days a range covers.
+     *
+     * Sundays are excluded because nothing is taught on one. A date before the
+     * start of the range returns zero rather than a negative number.
+     */
+    private function schoolDaysBetween(string $from, string $to): int
+    {
+        $start = Carbon::parse($from)->startOfDay();
+        $end = Carbon::parse($to)->startOfDay();
+
+        if ($end->lessThan($start)) {
+            return 0;
+        }
+
+        $days = 0;
+        $cursor = $start->copy();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            if ($cursor->dayOfWeek !== CarbonInterface::SUNDAY) {
+                $days++;
+            }
+
+            $cursor->addDay();
+        }
+
+        return $days;
     }
 }

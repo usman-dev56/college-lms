@@ -114,6 +114,21 @@ Route::middleware(['auth', 'role:admin'])
         Route::patch('attendance/{attendance}', [AttendanceController::class, 'update'])->name('attendance.update');
         Route::delete('attendance/{attendance}', [AttendanceController::class, 'destroy'])->name('attendance.destroy');
 
+        // Attendance reports.
+        //
+        // At the end of the group, and the export routes declared after the
+        // pages they belong to: "daily/export" is a longer literal than
+        // "daily", so matching them in the other order would let "daily" claim
+        // the path and leave the export unreachable.
+        Route::get('reports/attendance/daily', [AttendanceReportController::class, 'daily'])
+            ->name('reports.attendance.daily');
+        Route::get('reports/attendance/daily/export', [AttendanceReportController::class, 'exportDaily'])
+            ->name('reports.attendance.daily.export');
+        Route::get('reports/attendance/range', [AttendanceReportController::class, 'range'])
+            ->name('reports.attendance.range');
+        Route::get('reports/attendance/range/export', [AttendanceReportController::class, 'exportRange'])
+            ->name('reports.attendance.range.export');
+
         // Admissions
         // Not a resource: applications arrive from the public form, so there
         // is nothing to create, edit or delete from the admin side. The office
