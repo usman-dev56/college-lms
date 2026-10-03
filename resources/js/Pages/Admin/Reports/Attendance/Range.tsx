@@ -1,3 +1,4 @@
+import ReportsTabs from '@/Components/ReportsTabs';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -94,37 +95,6 @@ function SummaryCard({
     );
 }
 
-/**
- * The Daily / Range switch.
- *
- * Only the two reports that exist are rendered. A tab for a report with no
- * route would link to nowhere, so it is left out rather than shown greyed.
- */
-function ReportTabs({ active }: { active: 'daily' | 'range' }) {
-    const tabs = [
-        { label: 'Daily', routeName: 'admin.reports.attendance.daily' },
-        { label: 'Range', routeName: 'admin.reports.attendance.range' },
-    ];
-
-    return (
-        <div className="shrink-0 flex items-center gap-1 border-b border-gray-200">
-            {tabs.map((tab) => (
-                <Link
-                    key={tab.routeName}
-                    href={route(tab.routeName)}
-                    className={
-                        'px-4 py-2 text-sm font-medium transition ' +
-                        (tab.routeName === `admin.reports.attendance.${active}`
-                            ? 'border-b-2 border-navy text-navy'
-                            : 'border-b-2 border-transparent text-gray-600 hover:text-navy')
-                    }
-                >
-                    {tab.label}
-                </Link>
-            ))}
-        </div>
-    );
-}
 
 function CardTitle({ children }: { children: ReactNode }) {
     return (
@@ -207,7 +177,7 @@ return (
             )}
 
             <div className="flex h-full min-h-0 flex-col gap-4">
-                <ReportTabs active="range" />
+                <ReportsTabs active="range" />
 
                 <RangeFilterBar
                     classId={classId}

@@ -129,6 +129,21 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('reports/attendance/range/export', [AttendanceReportController::class, 'exportRange'])
             ->name('reports.attendance.range.export');
 
+        // Subject, monthly and trend reports. Each export follows its page, so
+        // the longer literal path is never claimed by the shorter one.
+        Route::get('reports/attendance/subject', [AttendanceReportController::class, 'subject'])
+            ->name('reports.attendance.subject');
+        Route::get('reports/attendance/subject/export', [AttendanceReportController::class, 'exportSubject'])
+            ->name('reports.attendance.subject.export');
+        Route::get('reports/attendance/monthly', [AttendanceReportController::class, 'monthly'])
+            ->name('reports.attendance.monthly');
+        Route::get('reports/attendance/monthly/export', [AttendanceReportController::class, 'exportMonthly'])
+            ->name('reports.attendance.monthly.export');
+        Route::get('reports/attendance/trend', [AttendanceReportController::class, 'trend'])
+            ->name('reports.attendance.trend');
+        Route::get('reports/attendance/trend/export', [AttendanceReportController::class, 'exportTrend'])
+            ->name('reports.attendance.trend.export');
+
         // Admissions
         // Not a resource: applications arrive from the public form, so there
         // is nothing to create, edit or delete from the admin side. The office

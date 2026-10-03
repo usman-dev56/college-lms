@@ -10,6 +10,7 @@ use App\Models\StudentProfile;
 use App\Models\TimetableSlot;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 /**
@@ -861,5 +862,385 @@ class AttendanceService
         }
 
         return $days;
+    }
+
+    /**
+     * Attendance broken down by subject, across a date range.
+     *
+     * The question this answers is "which subjects are being missed", which the
+     * per-student reports cannot: a class at 90% overall can still contain one
+     * subject at 60%, and that subject is the one the office has to act on. Rows
+     * are sorted worst-first so that subject is the first thing on the page.
+     *
+     * Filters are read from the request rather than passed as arguments so that
+     * the page and its CSV export resolve them identically - a hand-edited URL
+     * cannot widen a report the office did not ask for.
+     *
+     * @return array<string, mixed>
+     */
+    public function subjectReport(Request $request): array
+    {
+        $to = $this->dateFilter($request, 'to', now()->toDateString());
+        $from = $this->dateFilter($request, 'from', now()->subDays(30)->toDateString());
+
+        [$start, $end] = $from > $to ? [$to, $from] : [$from, $to];
+
+        $query = Attendance::query()
+            ->join('class_subjects', 'class_subjects.id', '=', 'attendances.class_subject_id')
+            ->join('subjects', 'subjects.id', '=', 'class_subjects.subject_id')
+            ->join('classes', 'classes.id', '=', 'class_subjects.class_id')
+            ->join('streams', 'streams.id', '=', 'classes.stream_id')
+            ->join('users', 'users.id', '=', 'class_subjects.teacher_id')
+            ->whereBetween('attendances.attendance_date', [$start, $end]);
+
+        if ($classId = $this->intFilter($request, 'class_id')) {
+            $query->where('classes.id', $classId);
+        }
+
+        if ($streamId = $this->intFilter($request, 'stream_id')) {
+            $query->where('streams.id', $streamId);
+        }
+
+        if ($grade = $this->intFilter($request, 'grade_level')) {
+            $query->where('classes.grade_level', $grade);
+        }
+
+        $subjects = $query
+            ->reorder()
+            // One selectRaw, because a second call appends its own comma
+            // and leaves a stray one between the two fragments.
+            ->selectRaw(
+                'class_subjects.id as class_subject_id,
+                 subjects.id as subject_id,
+                 subjects.name as subject_name,
+                 subjects.code as subject_code,
+                 classes.id as class_id,
+                 classes.grade_level,
+                 classes.section,
+                 streams.name as stream_name,
+                 users.name as teacher_name,'
+                .$this->perStatusCountsSql()
+            )
+            ->groupBy(
+                'class_subjects.id',
+                'subjects.id',
+                'subjects.name',
+                'subjects.code',
+                'classes.id',
+                'classes.grade_level',
+                'classes.section',
+                'streams.name',
+                'users.name',
+            )
+            // getQuery() rather than get(): the grouped rows carry subject_name
+            // and teacher_name, which Attendance has never heard of, so hydrating
+            // one would return an object whose joined columns are all null.
+            ->getQuery()
+            ->get()
+            ->map(function (object $row): array {
+                $totals = $this->rowTotals($row);
+
+                return [
+                    'class_subject_id' => (int) $row->class_subject_id,
+                    'subject_id' => (int) $row->subject_id,
+                    'subject_name' => (string) $row->subject_name,
+                    'subject_code' => $row->subject_code,
+                    'class_id' => (int) $row->class_id,
+                    'class_display_name' => $this->classDisplayName($row),
+                    'grade_level' => (int) $row->grade_level,
+                    'stream_name' => (string) $row->stream_name,
+                    'teacher_name' => (string) $row->teacher_name,
+                    ...$totals,
+                    'percentage' => $this->percentageFrom($totals),
+                ];
+            })
+            // Worst first, with a null percentage last: a subject with nothing
+            // marked is unknown and must not lead a report about what is going
+            // badly. Sorted in PHP on the row count a page holds.
+            ->sortBy([
+                fn (array $a, array $b): int => ($a['percentage'] ?? 101) <=> ($b['percentage'] ?? 101),
+                fn (array $a, array $b): int => $a['subject_name'] <=> $b['subject_name'],
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'from' => $start,
+            'to' => $end,
+            'subjects' => $subjects,
+            'by_grade' => $this->groupByGrade($subjects),
+            'overall' => $this->withPercentage($this->sumTotals($subjects)),
+        ];
+    }
+
+    /**
+     * Roll the subject rows up per grade level.
+     *
+     * @param  array<int, array<string, mixed>>  $subjects
+     * @return array<int, array<string, mixed>>
+     */
+    private function groupByGrade(array $subjects): array
+    {
+        $grades = [];
+
+        foreach ($subjects as $subject) {
+            $grade = $subject['grade_level'];
+
+            if (! isset($grades[$grade])) {
+                $grades[$grade] = ['grade_level' => $grade] + $this->emptyTotals();
+            }
+
+            foreach (['total', 'present', 'absent', 'late', 'leave'] as $key) {
+                $grades[$grade][$key] += $subject[$key];
+            }
+        }
+
+        /*
+            Recomputed after summing, because a grade's percentage is its own
+            totals divided by its own total - not an average of its subjects',
+            which would weight a subject with two records the same as one with
+            two hundred.
+        */
+        foreach ($grades as $grade => $row) {
+            $grades[$grade] = [...$row, ...$this->withPercentage($this->countsOnly($row))];
+        }
+
+        ksort($grades);
+
+        return array_values($grades);
+    }
+
+    /**
+     * The five count columns out of a row that also carries other keys.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{total: int, present: int, absent: int, late: int, leave: int}
+     */
+    private function countsOnly(array $row): array
+    {
+        return [
+            'total' => (int) $row['total'],
+            'present' => (int) $row['present'],
+            'absent' => (int) $row['absent'],
+            'late' => (int) $row['late'],
+            'leave' => (int) $row['leave'],
+        ];
+    }
+
+    /**
+     * A positive integer filter from the request, or null.
+     *
+     * Only applied when numeric, so a blank or a hand-typed letter narrows
+     * nothing rather than producing an empty report that looks like bad data.
+     */
+    private function intFilter(Request $request, string $key): ?int
+    {
+        $value = $request->query($key);
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
+    }
+
+    /**
+     * A Y-m-d filter from the request, or the fallback.
+     *
+     * Checked rather than parsed and trusted, because the value goes straight
+     * into a BETWEEN and "2026-13-45" is not a date.
+     */
+    private function dateFilter(Request $request, string $key, string $fallback): string
+    {
+        $value = $request->query($key);
+
+        if (! is_string($value) || ! Carbon::hasFormat($value, 'Y-m-d')) {
+            return $fallback;
+        }
+
+        return Carbon::parse($value)->format('Y-m-d') === $value ? $value : $fallback;
+    }
+
+    /**
+     * Per-student attendance for one calendar month.
+     *
+     * The month is taken as a whole rather than as a rolling window, because
+     * this is the report the office produces at the end of each month and shows
+     * to parents. It answers "how did my son do in October", and a rolling
+     * thirty days cannot answer that.
+     *
+     * Every active student on the roll appears, marked or not, and within the
+     * month the class and batch filters narrow which students are listed rather
+     * than which marks are counted - filtering the rows would make a student
+     * vanish rather than move out of view.
+     *
+     * @return array<string, mixed>
+     */
+    public function monthlySummary(Request $request): array
+    {
+        $month = $this->monthFilter($request);
+        $start = Carbon::parse($month.'-01')->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+
+        $counts = Attendance::query()
+            ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('student_profile_id')
+            ->selectRaw($this->perStatusCountsSql())
+            ->groupBy('student_profile_id')
+            ->get()
+            ->keyBy('student_profile_id');
+
+        $classId = $this->intFilter($request, 'class_id');
+        $batchId = $this->intFilter($request, 'batch_id');
+
+        $students = StudentProfile::query()
+            ->where('status', 'active')
+            ->whereHas('user', fn (Builder $query) => $query->where('is_active', true))
+            ->when($batchId, fn (Builder $query, int $id) => $query->where('batch_id', $id))
+            ->with(['user', 'batch'])
+            ->get();
+
+        $rows = [];
+
+        foreach ($students as $student) {
+            $enrollment = $student->currentEnrollment();
+            $class = $enrollment?->classModel;
+
+            // A class filter that the student does not match skips them; one they
+            // do match does not change what is counted.
+            if ($classId !== null && (int) ($class?->id ?? 0) !== $classId) {
+                continue;
+            }
+
+            $totals = $this->rowTotals($counts->get($student->id));
+            $percentage = $this->percentageFrom($totals);
+
+            $rows[] = [
+                'student_profile_id' => $student->id,
+                'roll_number' => (string) ($student->roll_number ?? ''),
+                'student_name' => (string) ($student->user?->name ?? 'Unknown Student'),
+                'batch_name' => (string) ($student->batch?->name ?? ''),
+
+                // Null when the student has no live enrollment, which the page
+                // renders as "Not enrolled" rather than as a blank.
+                'class_display_name' => $class?->displayName(),
+                ...$totals,
+                'percentage' => $percentage,
+                'is_below_threshold' => $this->isBelowThreshold($percentage),
+            ];
+        }
+
+        usort($rows, fn (array $a, array $b): int => $a['percentage'] <=> $b['percentage']);
+
+        return [
+            'month' => $start->format('Y-m'),
+            'month_label' => $start->format('F Y'),
+            'days_in_range' => $this->schoolDaysBetween(
+                $start->toDateString(),
+                $end->toDateString(),
+            ),
+            'students' => $rows,
+            'overall' => $this->withPercentage($this->sumTotals($rows)),
+        ];
+    }
+
+    /**
+     * A YYYY-MM month filter from the request, or the current month.
+     *
+     * Formatted rather than parsed and trusted, because it is concatenated into
+     * a '-01' date and "2026-13" is not a month.
+     */
+    private function monthFilter(Request $request): string
+    {
+        $value = $request->query('month');
+
+        if (! is_string($value) || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value)) {
+            return now()->format('Y-m');
+        }
+
+        return $value;
+    }
+
+    /**
+     * The daily attendance rate over the last N days.
+     *
+     * One grouped query for the whole window rather than one per day: thirty
+     * days would otherwise cost thirty round trips to draw a single chart, and
+     * this page exists to be glanced at.
+     *
+     * Days with no marks are returned with a null percentage instead of being
+     * left out, so the x-axis is a continuous calendar and a gap reads as "no
+     * attendance recorded" rather than being silently smoothed over by a line
+     * joining two points either side of it.
+     *
+     * @return array<string, mixed>
+     */
+    public function trend(int $days = 30, ?int $classId = null): array
+    {
+        // Bounded rather than trusted: a chart of 9000 bars is not a chart, and
+        // the value arrives from the query string.
+        $days = max(1, min(365, $days));
+
+        $to = Carbon::today();
+        $from = $to->copy()->subDays($days - 1);
+
+        $query = Attendance::query()
+            ->whereBetween('attendance_date', [$from->toDateString(), $to->toDateString()]);
+
+        if ($classId !== null) {
+            $query->whereIn(
+                'class_subject_id',
+                ClassSubject::query()->where('class_id', $classId)->select('id'),
+            );
+        }
+
+        $daily = $query
+            ->selectRaw('attendance_date')
+            ->selectRaw($this->perStatusCountsSql())
+            ->groupBy('attendance_date')
+            ->get()
+            /*
+                Keyed on the date part only. attendance_date is cast to a
+                Carbon on the model, and casting that object to a string gives
+                "2026-09-25 00:00:00" rather than "2026-09-25" - so a lookup
+                keyed on the plain date would miss every row and the chart
+                would come back empty over data that plainly exists.
+            */
+            ->keyBy(fn (object $row): string => $row->attendance_date->toDateString());
+
+        $data = [];
+        $cursor = $from->copy();
+
+        while ($cursor->lessThanOrEqualTo($to)) {
+            $key = $cursor->toDateString();
+            $row = $daily->get($key);
+            $totals = $this->rowTotals($row);
+
+            $data[] = [
+                'date' => $key,
+                // "Oct 03" rather than an ISO date: this is an axis label, and it
+                // has to fit under a narrow bar.
+                'date_label' => $cursor->format('M d'),
+                'total' => $totals['total'],
+                'present' => $totals['present'],
+                'absent' => $totals['absent'],
+                'percentage' => $this->percentageFrom($totals),
+            ];
+
+            $cursor->addDay();
+        }
+
+        $class = $classId !== null ? ClassModel::find($classId) : null;
+
+        return [
+            'days' => $days,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'data' => $data,
+            'class_id' => $classId,
+
+            // Null when the requested class does not exist, so the page can say so
+            // rather than drawing an all-college chart under a class heading.
+            'class' => $class === null ? null : [
+                'id' => $class->id,
+                'display_name' => $class->displayName(),
+            ],
+        ];
     }
 }

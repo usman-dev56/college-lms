@@ -1,3 +1,4 @@
+import ReportsTabs from '@/Components/ReportsTabs';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -127,46 +128,6 @@ function SummaryCard({
     );
 }
 
-/**
- * The Daily / Range switch.
- *
- * Only the two reports that exist in this part are rendered. A tab for a
- * report that has no route would be a link to nowhere, so it is left out
- * entirely rather than shown greyed out.
- */
-function ReportTabs({ active }: { active: 'daily' | 'range' }) {
-    const tabs: { label: string; routeName: string; key: string }[] = [
-        {
-            label: 'Daily',
-            routeName: 'admin.reports.attendance.daily',
-            key: 'daily',
-        },
-        {
-            label: 'Range',
-            routeName: 'admin.reports.attendance.range',
-            key: 'range',
-        },
-    ];
-
-    return (
-        <div className="shrink-0 flex items-center gap-1 border-b border-gray-200">
-            {tabs.map((tab) => (
-                <Link
-                    key={tab.key}
-                    href={route(tab.routeName)}
-                    className={
-                        'px-4 py-2 text-sm font-medium transition ' +
-                        (tab.key === active
-                            ? 'border-b-2 border-navy text-navy'
-                            : 'border-b-2 border-transparent text-gray-600 hover:text-navy')
-                    }
-                >
-                    {tab.label}
-                </Link>
-            ))}
-        </div>
-    );
-}
 export default function Daily() {
     const { report, classes, filters, flash } =
         usePage<PageProps<DailyReportPageProps>>().props;
@@ -248,7 +209,7 @@ export default function Daily() {
             )}
 
             <div className="flex h-full min-h-0 flex-col gap-4">
-                <ReportTabs active="daily" />
+                <ReportsTabs active="daily" />
 
                 <FilterBar
                     classId={classId}

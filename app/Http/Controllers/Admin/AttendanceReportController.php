@@ -382,4 +382,231 @@ class AttendanceReportController extends Controller
 
         return Carbon::parse($value)->format('Y-m-d') === $value ? $value : $fallback;
     }
+
+    /**
+     * Attendance broken down by subject across a range.
+     */
+    public function subject(Request $request): Response
+    {
+        return Inertia::render('Admin/Reports/Attendance/Subject', [
+            'report' => app(AttendanceService::class)->subjectReport($request),
+            'classes' => $this->classOptions(),
+            'streams' => Stream::query()->orderBy('name')->pluck('name', 'id')->all(),
+
+            // The college runs grades 11 and 12, so these are written out rather
+            // than queried: a hard-coded list cannot drift from the schema.
+            'grades' => [11, 12],
+            'filters' => [
+                'class_id' => $this->numericId($request->query('class_id')),
+                'stream_id' => $this->numericId($request->query('stream_id')),
+                'grade_level' => $this->numericId($request->query('grade_level')),
+                'from' => $this->dateOr(
+                    $request->query('from'),
+                    now()->subDays(30)->toDateString(),
+                ),
+                'to' => $this->dateOr($request->query('to'), now()->toDateString()),
+            ],
+        ]);
+    }
+
+    /**
+     * Per-student attendance for a calendar month.
+     */
+    public function monthly(Request $request): Response
+    {
+        return Inertia::render('Admin/Reports/Attendance/Monthly', [
+            'report' => app(AttendanceService::class)->monthlySummary($request),
+            'classes' => $this->classOptions(),
+            'batches' => StudentBatch::query()->orderBy('name')->pluck('name', 'id')->all(),
+            'filters' => [
+                'month' => is_string($request->query('month'))
+                    ? $request->query('month')
+                    : now()->format('Y-m'),
+                'class_id' => $this->numericId($request->query('class_id')),
+                'batch_id' => $this->numericId($request->query('batch_id')),
+            ],
+        ]);
+    }
+
+    /**
+     * The daily attendance rate as a chart, over a window of days.
+     */
+    public function trend(Request $request): Response
+    {
+        $filters = $this->trendFilters($request);
+
+        return Inertia::render('Admin/Reports/Attendance/Trend', [
+            'report' => app(AttendanceService::class)->trend(
+                $filters['days'],
+                $filters['class_id'],
+            ),
+            'classes' => $this->classOptions(),
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * The subject report as a spreadsheet, one row per class-subject.
+     */
+    public function exportSubject(Request $request): StreamedResponse
+    {
+        $report = app(AttendanceService::class)->subjectReport($request);
+
+        return response()->streamDownload(function () use ($report): void {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Subject',
+                'Code',
+                'Class',
+                'Grade',
+                'Stream',
+                'Teacher',
+                'Present',
+                'Absent',
+                'Late',
+                'Leave',
+                'Total',
+                'Percentage',
+            ], escape: '\\');
+
+            foreach ($report['subjects'] as $subject) {
+                fputcsv($handle, [
+                    $subject['subject_name'],
+                    $subject['subject_code'],
+                    $subject['class_display_name'],
+                    $subject['grade_level'],
+                    $subject['stream_name'],
+                    $subject['teacher_name'],
+                    $subject['present'],
+                    $subject['absent'],
+                    $subject['late'],
+                    $subject['leave'],
+                    $subject['total'],
+                    $subject['percentage'] === null
+                        ? ''
+                        : number_format($subject['percentage'], 2),
+                ], escape: '\\');
+            }
+
+            fclose($handle);
+        }, 'subject-attendance-'.$report['from'].'-'.$report['to'].'.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
+     * The monthly summary as a spreadsheet, one row per student.
+     */
+    public function exportMonthly(Request $request): StreamedResponse
+    {
+        $report = app(AttendanceService::class)->monthlySummary($request);
+
+        return response()->streamDownload(function () use ($report): void {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Roll Number',
+                'Student',
+                'Batch',
+                'Class',
+                'Present',
+                'Absent',
+                'Late',
+                'Leave',
+                'Total',
+                'Percentage',
+            ], escape: '\\');
+
+            foreach ($report['students'] as $student) {
+                fputcsv($handle, [
+                    $student['roll_number'],
+                    $student['student_name'],
+                    $student['batch_name'],
+
+                    // "Not enrolled" rather than a blank cell: an un-enrolled
+                    // student is a real state and an empty column would read as
+                    // a missing value.
+                    $student['class_display_name'] ?? 'Not enrolled',
+
+                    $student['present'],
+                    $student['absent'],
+                    $student['late'],
+                    $student['leave'],
+                    $student['total'],
+                    $student['percentage'] === null
+                        ? ''
+                        : number_format($student['percentage'], 2),
+                ], escape: '\\');
+            }
+
+            fclose($handle);
+        }, 'monthly-attendance-'.$report['month'].'.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
+     * The trend as a spreadsheet, one row per day.
+     */
+    public function exportTrend(Request $request): StreamedResponse
+    {
+        $filters = $this->trendFilters($request);
+
+        $report = app(AttendanceService::class)->trend(
+            $filters['days'],
+            $filters['class_id'],
+        );
+
+        return response()->streamDownload(function () use ($report): void {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Date',
+                'Total',
+                'Present',
+                'Absent',
+                'Percentage',
+            ], escape: '\\');
+
+            foreach ($report['data'] as $day) {
+                fputcsv($handle, [
+                    $day['date'],
+                    $day['total'],
+                    $day['present'],
+                    $day['absent'],
+
+                    // Blank rather than zero for a day with nothing marked.
+                    $day['percentage'] === null
+                        ? ''
+                        : number_format($day['percentage'], 2),
+                ], escape: '\\');
+            }
+
+            fclose($handle);
+        }, 'trend-attendance-'.$report['from'].'-'.$report['to'].'.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
+     * The trend report's filters.
+     *
+     * The window is clamped to a sane set rather than trusted: the value arrives
+     * from the query string and a chart of nine thousand bars is not a chart.
+     *
+     * @return array{days: int, class_id: int|null}
+     */
+    private function trendFilters(Request $request): array
+    {
+        $days = $this->numericId($request->query('days')) ?? 30;
+
+        return [
+            'days' => in_array($days, [7, 14, 30, 60, 90], true) ? $days : 30,
+            'class_id' => $this->numericId($request->query('class_id')),
+        ];
+    }
 }
