@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\Admission;
-use App\Models\Attendance;
 use App\Models\ClassModel;
 use App\Models\Enrollment;
 use App\Models\StudentProfile;
@@ -13,33 +12,28 @@ use App\Models\User;
 use App\Services\AttendanceService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * The administrator's landing page.
  *
- * A dashboard is only useful if it answers the question the person opening it
- * actually has, so this gathers four of them and nothing else: how big is the
- * college, how is attendance going, who needs a telephone call, and what is
- * waiting in the admissions queue. Everything here is a count or an aggregate
- * over existing rows - no table of its own, and nothing to keep in step.
+ * Four questions, and nothing else: how big is the college, how is the roll
+ * distributed, how full are the classes, and what is waiting to be dealt with.
+ * Everything is a count or an aggregate over existing rows - there is no table
+ * behind this page and nothing to keep in step.
  *
- * Every figure is scoped to the active session where one applies, so a
- * dashboard opened in a new academic year does not silently keep counting last
- * year's classes.
+ * Attendance has its own pages, so none of it appears here beyond the defaulter
+ * list: a dashboard that tried to carry the trend chart as well would answer
+ * the attendance question badly and leave the rest of the college worse.
+ *
+ * Counts that depend on a session are taken from the active one, falling back
+ * to the most recent. Without that fallback a college that has not activated
+ * next year's session yet would show a dashboard of zeroes on the first day of
+ * term, which reads as an empty college rather than as an unactivated session.
  */
 class DashboardController extends Controller
 {
-    /**
-     * How many days of trend to chart.
-     *
-     * A term's worth of history does not fit on a card, and the thirty-day
-     * window is long enough for a weekly pattern to be visible.
-     */
-    private const TREND_DAYS = 30;
-
     /**
      * How many defaulters and admissions to name.
      *
@@ -52,95 +46,93 @@ class DashboardController extends Controller
 
     public function index(Request $request): Response
     {
-        $session = AcademicSession::current();
+        $session = $this->session();
 
         return Inertia::render('Admin/Dashboard', [
             'user' => ['name' => (string) $request->user()?->name],
 
-            'metrics' => [
-                'total_students' => $this->activeStudentCount(),
-                'total_teachers' => User::query()
-                    ->where('role', 'teacher')
-                    ->where('is_active', true)
-                    ->count(),
-                'total_classes' => $session === null ? 0 : ClassModel::query()
-                    ->where('academic_session_id', $session->id)
-                    ->where('is_active', true)
-                    ->count(),
-                'total_admissions_pending' => Admission::query()
-                    ->where('status', 'pending')
-                    ->count(),
-            ],
-
-            'attendance' => $this->todaysAttendance(),
+            'metrics' => $this->metrics($session),
+            'pendingAdmissions' => Admission::query()
+                ->where('status', 'pending')
+                ->count(),
 
             'studentsByStream' => $this->studentsByStream($session),
-
-            // Only the series, not the whole report: the page draws a chart
-            // and needs four numbers per day, not the envelope around them.
-            'attendanceTrend' => app(AttendanceService::class)
-                ->trend(self::TREND_DAYS)['data'],
-
+            'classCapacity' => $this->classCapacity($session),
             'topDefaulters' => $this->topDefaulters(),
-
             'recentAdmissions' => $this->recentAdmissions(),
         ]);
     }
 
     /**
-     * Students who are both on the roll and still able to attend.
+     * The session the figures describe: the active one, or the latest.
      *
-     * Both conditions, because either alone is wrong: a graduated profile is
-     * still a row, and an account deactivated by the office is still a row.
+     * Never null, so no caller has to decide what an absent session means -
+     * it returns the most recent instead, which is the best available answer.
      */
-    private function activeStudentCount(): int
+    private function session(): ?AcademicSession
     {
-        return StudentProfile::query()
-            ->where('status', 'active')
-            ->whereHas('user', fn (Builder $query) => $query->where('is_active', true))
-            ->count();
+        return AcademicSession::current()
+            ?? AcademicSession::query()
+                ->orderByDesc('start_date')
+                ->first();
     }
 
     /**
-     * Today's register, and the rate it works out to.
+     * The five headline counts.
      *
-     * Read from the Attendance rows rather than through AttendanceService,
-     * which reports over a class or a date range rather than over a whole
-     * college on one day. Late and leave count as present, matching every other
-     * percentage in the system, so the number on this card cannot disagree
-     * with the number on a student's page.
-     *
-     * @return array{today_total: int, today_present: int, today_percentage: float|null}
+     * @return array{total_students: int, total_teachers: int, total_classes: int, total_enrolled: int, total_unassigned: int}
      */
-    private function todaysAttendance(): array
+    private function metrics(?AcademicSession $session): array
     {
-        $today = Attendance::query()
-            ->whereDate('attendance_date', Carbon::today());
+        // Both conditions, because either alone is wrong: a graduated profile is
+        // still a row, and an account deactivated by the office is still a row.
+        $students = StudentProfile::query()
+            ->where('status', 'active')
+            ->whereHas('user', fn (Builder $query) => $query->where('is_active', true))
+            ->count();
 
-        $total = (clone $today)->count();
-        $present = $today->present()->count();
+        $enrolled = $session === null ? 0 : Enrollment::query()
+            ->where('academic_session_id', $session->id)
+            ->where('status', 'active')
+            ->count();
 
-        // Null rather than zero: a college that has not marked anything this
-        // morning has an unknown attendance, which is not the same statement as
-        // an attendance of zero.
         return [
-            'today_total' => $total,
-            'today_present' => $present,
-            'today_percentage' => $total === 0
-                ? null
-                : round($present / $total * 100, 2),
+            'total_students' => $students,
+            'total_teachers' => User::query()
+                ->where('role', 'teacher')
+                ->where('is_active', true)
+                ->count(),
+            'total_classes' => $session === null ? 0 : ClassModel::query()
+                ->where('academic_session_id', $session->id)
+                ->where('is_active', true)
+                ->count(),
+            'total_enrolled' => $enrolled,
+
+            /*
+                Floored at zero. The two counts come from different tables on
+                purpose - every active profile against the current session's
+                enrollments - so a student enrolled in last year's session
+                leaves the second number smaller than the first, and a
+                "negative unassigned" would be a puzzle rather than a figure.
+             */
+            'total_unassigned' => max(0, $students - $enrolled),
         ];
     }
 
     /**
-     * The roll split by stream, largest first.
+     * The roll split by stream, and within each stream by grade.
      *
      * Counted through enrollments rather than through the batch, because a
      * stream is a property of the class a student is sitting in: a batch spans
      * streams, so grouping by batch would answer a different question than the
      * chart asks.
      *
-     * @return array<int, array{stream_name: string, student_count: int}>
+     * Pivoted in PHP rather than in SQL. The chart wants one row per stream
+     * carrying both grades as columns, and a grouped query returns one row per
+     * stream-and-grade pair - folding those into a row each is arithmetic, not
+     * something the database should be doing for a table this small.
+     *
+     * @return array<int, array{stream_name: string, grade_11_count: int, grade_12_count: int, total: int}>
      */
     private function studentsByStream(?AcademicSession $session): array
     {
@@ -148,22 +140,96 @@ class DashboardController extends Controller
             return [];
         }
 
-        return Enrollment::query()
+        $rows = Enrollment::query()
             ->join('classes', 'classes.id', '=', 'enrollments.class_id')
             ->join('streams', 'streams.id', '=', 'classes.stream_id')
             ->where('enrollments.academic_session_id', $session->id)
             ->where('enrollments.status', 'active')
-            ->groupBy('streams.name')
+            ->groupBy('streams.name', 'classes.grade_level')
             // DISTINCT because a student can hold more than one enrollment in
             // a session; counting rows would double-count them.
-            ->selectRaw('streams.name as stream_name, COUNT(DISTINCT enrollments.student_profile_id) as student_count')
-            ->orderByDesc('student_count')
-            ->orderBy('streams.name')
-            ->get()
-            ->map(fn ($row): array => [
-                'stream_name' => (string) $row->stream_name,
-                'student_count' => (int) $row->student_count,
+            ->selectRaw(
+                'streams.name as stream_name,
+                 classes.grade_level,
+                 COUNT(DISTINCT enrollments.student_profile_id) as student_count'
+            )
+            ->get();
+
+        $byStream = [];
+
+        foreach ($rows as $row) {
+            $name = (string) $row->stream_name;
+            $count = (int) $row->student_count;
+
+            $byStream[$name] ??= [
+                'stream_name' => $name,
+                'grade_11_count' => 0,
+                'grade_12_count' => 0,
+                'total' => 0,
+            ];
+
+            $byStream[$name]['total'] += $count;
+
+            // A grade the college does not teach still counts towards the
+            // stream total; it just has no bar of its own, which is
+            // better than quietly folding it into 11th.
+            if ((int) $row->grade_level === 11) {
+                $byStream[$name]['grade_11_count'] += $count;
+            } elseif ((int) $row->grade_level === 12) {
+                $byStream[$name]['grade_12_count'] += $count;
+            }
+        }
+
+        ksort($byStream);
+
+        return array_values($byStream);
+    }
+
+    /**
+     * How full each active class is.
+     *
+     * withCount rather than a grouped join: it keeps classes with no students
+     * at all in the result. A group-by join with an inner join drops an empty
+     * class, and an empty class is exactly the one the office needs to see.
+     *
+     * A class with no capacity is reported with null utilisation rather than
+     * omitted or shown as 0%. Not setting a capacity is a decision, not a full
+     * class, and the two must not look alike.
+     *
+     * @return array<int, array{class_id: int, class_display_name: string, capacity: int|null, enrolled_count: int, utilization_percentage: float|null}>
+     */
+    private function classCapacity(?AcademicSession $session): array
+    {
+        if ($session === null) {
+            return [];
+        }
+
+        return ClassModel::query()
+            ->where('academic_session_id', $session->id)
+            ->where('is_active', true)
+            ->with('stream')
+            ->withCount([
+                'enrollments as enrolled_count' => fn (Builder $query) => $query
+                    ->where('academic_session_id', $session->id)
+                    ->where('status', 'active'),
             ])
+            ->get()
+            ->map(function (ClassModel $class): array {
+                $capacity = $class->capacity === null ? null : (int) $class->capacity;
+                $enrolled = (int) $class->enrolled_count;
+
+                return [
+                    'class_id' => $class->id,
+                    'class_display_name' => $class->displayName(),
+                    'capacity' => $capacity,
+                    'enrolled_count' => $enrolled,
+                    'utilization_percentage' => $capacity === null || $capacity === 0
+                        ? null
+                        : round($enrolled / $capacity * 100, 1),
+                ];
+            })
+            ->sortBy('class_display_name')
+            ->values()
             ->all();
     }
 
@@ -210,7 +276,7 @@ class DashboardController extends Controller
                 'stream_name' => $admission->streamApplied?->name,
                 'batch_name' => $admission->batch?->name,
                 'status' => (string) $admission->status,
-                'created_at' => $admission->created_at?->format('j M Y'),
+                'created_at' => $admission->created_at?->format('Y-m-d H:i'),
             ])
             ->all();
     }

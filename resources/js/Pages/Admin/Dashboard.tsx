@@ -3,11 +3,8 @@ import { Head, Link } from '@inertiajs/react';
 import {
     Bar,
     BarChart,
-    Cell,
     CartesianGrid,
     Legend,
-    Pie,
-    PieChart,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -20,20 +17,22 @@ interface DashboardProps {
         total_students: number;
         total_teachers: number;
         total_classes: number;
-        total_admissions_pending: number;
+        total_enrolled: number;
+        total_unassigned: number;
     };
-    attendance: {
-        today_total: number;
-        today_present: number;
-        today_percentage: number | null;
-    };
-    studentsByStream: { stream_name: string; student_count: number }[];
-    attendanceTrend: {
-        date: string;
-        date_label: string;
+    pendingAdmissions: number;
+    studentsByStream: {
+        stream_name: string;
+        grade_11_count: number;
+        grade_12_count: number;
         total: number;
-        present: number;
-        percentage: number | null;
+    }[];
+    classCapacity: {
+        class_id: number;
+        class_display_name: string;
+        capacity: number | null;
+        enrolled_count: number;
+        utilization_percentage: number | null;
     }[];
     topDefaulters: {
         student_name: string;
@@ -56,21 +55,10 @@ const NAVY = '#0F2B5F';
 const GOLD = '#C9A227';
 
 /**
- * The pie's slice palette.
+ * Status badge colours, keyed by admission status.
  *
- * Five shades drawn from the college's own navy and gold rather than a
- * general-purpose categorical ramp, so the chart reads as part of this site
- * instead of one dropped in from elsewhere. The grey at the end is the
- * fallback for a sixth stream, which should read as "other" rather than as a
- * colour the college chose.
- */
-const SLICE_COLORS = [NAVY, '#1A3D78', GOLD, '#8B6F1A', '#6B7280'];
-
-/**
- * Status badge colours, keyed by the admission status.
- *
- * The neutral grey fallback matters: a status added later must still render as
- * a badge rather than as unstyled text.
+ * The grey fallback matters: a status added later must still render as a badge
+ * rather than as unstyled text.
  */
 const STATUS_COLORS: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-800',
@@ -81,47 +69,50 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const cardClass = 'rounded-lg bg-white shadow-sm ring-1 ring-gray-200';
-export default function Dashboard(props: DashboardProps) {
-    const { user, metrics, attendance, studentsByStream, attendanceTrend } =
-        props;
-    const { topDefaulters, recentAdmissions } = props;
-
-    // A day with nothing marked keeps its null, and Recharts draws null as a
-    // gap. That is the honest reading: an unmarked Sunday is not a day on
-    // which nobody came to school.
-    const trendData = attendanceTrend.map((point) => ({
-        ...point,
-        chartPercentage: point.percentage ?? null,
-    }));
-
-    const trendHasData = attendanceTrend.some((d) => d.total > 0);
-    const streamHasData = studentsByStream.length > 0;
-
-    const today = new Date().toLocaleDateString('en-GB', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    });
+export default function Dashboard({
+    user,
+    metrics,
+    pendingAdmissions,
+    studentsByStream,
+    classCapacity,
+    topDefaulters,
+    recentAdmissions,
+}: DashboardProps) {
+    /*
+        Only classes with a capacity set can be charted. One with no capacity
+        is not 0% full - it is undecided - and putting it on the axis beside
+        real classes would claim a fact nobody entered. They are listed
+        nowhere here, which is why the chart's empty state mentions capacity
+        rather than simply saying "no data".
+    */
+    const chartableClasses = classCapacity.filter(
+        (c): c is DashboardProps['classCapacity'][number] & {
+            utilization_percentage: number;
+        } => c.utilization_percentage !== null,
+    );
 
     return (
         <AuthenticatedLayout
             header={
                 <div className="w-full">
-                    <h2 className="font-serif text-xl font-semibold text-navy">
+                    <h2 className="font-serif text-2xl font-semibold text-navy">
                         Administrator Dashboard
                     </h2>
                     <p className="mt-1 text-sm text-gray-600">
-                        Welcome back, {user.name} — {today}
+                        Welcome back, {user.name}
                     </p>
                 </div>
             }
         >
             <Head title="Admin Dashboard" />
 
-            <div className="flex flex-col gap-4">
+            <div className="flex h-full min-h-0 flex-col gap-4">
+                {pendingAdmissions > 0 && (
+                    <PendingBanner count={pendingAdmissions} />
+                )}
+
                 {/* Row 1 — headline figures */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <MetricCard
                         label="Total Students"
                         value={metrics.total_students}
@@ -137,43 +128,32 @@ export default function Dashboard(props: DashboardProps) {
                         value={metrics.total_classes}
                         subtitle="In current session"
                     />
-
-                    {/* The one card whose value can be "no answer": an
-                        unmarked morning has an unknown attendance, which is
-                        not the same claim as 0%. */}
                     <MetricCard
-                        label="Today's Attendance"
-                        value={
-                            attendance.today_percentage === null
-                                ? '—'
-                                : `${attendance.today_percentage}%`
-                        }
+                        label="Total Enrollments"
+                        value={metrics.total_enrolled}
                         subtitle={
-                            attendance.today_total === 0
-                                ? 'No records yet'
-                                : `${attendance.today_present} of ${attendance.today_total} present`
+                            metrics.total_unassigned > 0
+                                ? `${metrics.total_unassigned} unassigned`
+                                : 'All students enrolled'
                         }
+                        // The one card whose subtitle can be a problem: an
+                        // unassigned student is work still to be done.
                         tone={
-                            attendance.today_percentage === null
-                                ? 'text-gray-400'
-                                : attendance.today_percentage < 75
-                                  ? 'text-red-600'
-                                  : 'text-navy'
+                            metrics.total_unassigned > 0
+                                ? 'text-amber-600'
+                                : 'text-navy'
                         }
                     />
                 </div>
 
                 {/* Row 2 — charts */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <TrendChart data={trendData} hasData={trendHasData} />
-                    <StreamChart
-                        data={studentsByStream}
-                        hasData={streamHasData}
-                    />
+                <div className="grid shrink-0 grid-cols-1 gap-4 lg:grid-cols-2">
+                    <StreamChart data={studentsByStream} />
+                    <CapacityChart data={chartableClasses} />
                 </div>
 
                 {/* Row 3 — what needs a decision */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="grid shrink-0 grid-cols-1 gap-4 lg:grid-cols-2">
                     <DefaultersPanel defaulters={topDefaulters} />
                     <AdmissionsPanel admissions={recentAdmissions} />
                 </div>
@@ -209,66 +189,89 @@ function MetricCard({
         </div>
     );
 }
+
 /**
- * Daily attendance rate across the last thirty days.
+ * The amber strip above the metrics, shown only when there is a queue.
  *
- * The percentage is drawn rather than the headcount, because the question is
- * "how full was the college", and a day of 400 marks at 92% and a day of 30 at
- * 92% are the same answer on this chart even though one is a far busier day.
+ * Deliberately the first thing on the page rather than another card: a pending
+ * application is the one thing on this dashboard that is a task rather than a
+ * statistic, and burying it in a row of counts would let it be missed.
  */
-function TrendChart({
-    data,
-    hasData,
-}: {
-    data: (DashboardProps['attendanceTrend'][number] & {
-        chartPercentage: number | null;
-    })[];
-    hasData: boolean;
-}) {
+function PendingBanner({ count }: { count: number }) {
+    return (
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-5 py-3">
+            <p className="text-sm font-medium text-amber-900">
+                You have {count} pending admission{count === 1 ? '' : 's'}{' '}
+                waiting for review.
+            </p>
+            <Link
+                href={`${route('admin.admissions.index')}?status=pending`}
+                className="text-sm font-semibold text-amber-900 underline hover:no-underline"
+            >
+                Review now
+            </Link>
+        </div>
+    );
+}
+/**
+ * The roll per stream, split by grade.
+ *
+ * Stacked rather than side-by-side because the two questions are different:
+ * the total height of a bar is "how big is this stream", and the boundary
+ * inside it is "how much of that is next year's problem".
+ */
+function StreamChart({ data }: { data: DashboardProps['studentsByStream'] }) {
     return (
         <div className={`${cardClass} p-5`}>
             <h3 className="font-serif text-base font-semibold text-navy">
-                Attendance Trend (30 days)
+                Students by Stream
             </h3>
 
-            {!hasData ? (
-                <EmptyChart message="No attendance data yet." />
+            {data.length === 0 ? (
+                <EmptyChart message="No students enrolled yet." />
             ) : (
                 <div className="mt-4 h-[280px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data}>
+                        <BarChart data={data} margin={{ bottom: 5 }}>
                             <CartesianGrid
                                 strokeDasharray="3 3"
                                 stroke="#E5E7EB"
                                 vertical={false}
                             />
                             <XAxis
-                                dataKey="date_label"
+                                dataKey="stream_name"
                                 tick={{ fontSize: 11 }}
-                                interval="preserveStartEnd"
                                 stroke="#6B7280"
                             />
                             <YAxis
-                                domain={[0, 100]}
                                 tick={{ fontSize: 11 }}
                                 stroke="#6B7280"
-                                unit="%"
+                                allowDecimals={false}
                             />
                             <Tooltip
-                                cursor={{
-                                    fill: 'rgba(15, 43, 95, 0.06)',
-                                }}
-                                contentStyle={{
-                                    borderRadius: 6,
-                                    border: '1px solid #E5E7EB',
-                                    fontSize: 12,
-                                }}
+                                cursor={{ fill: 'rgba(15, 43, 95, 0.06)' }}
+                                contentStyle={tooltipStyle}
+                            />
+                            <Legend
+                                verticalAlign="top"
+                                height={28}
+                                iconType="circle"
+                                wrapperStyle={{ fontSize: 12 }}
+                            />
+                            {/* The shared stackId is what stacks them; the two
+                                columns are otherwise just two bars. */}
+                            <Bar
+                                dataKey="grade_11_count"
+                                name="Grade 11"
+                                stackId="grades"
+                                fill={NAVY}
                             />
                             <Bar
-                                dataKey="chartPercentage"
-                                fill={NAVY}
+                                dataKey="grade_12_count"
+                                name="Grade 12"
+                                stackId="grades"
+                                fill={GOLD}
                                 radius={[3, 3, 0, 0]}
-                                name="Attendance %"
                             />
                         </BarChart>
                     </ResponsiveContainer>
@@ -279,71 +282,115 @@ function TrendChart({
 }
 
 /**
- * How the roll divides across streams.
+ * How full each class is, as a percentage of its stated capacity.
  *
- * The count travels on the slice as well as in the legend, because a legend
- * alone makes the reader do arithmetic to answer "how many".
+ * A percentage rather than a headcount, because the point of capacity is the
+ * ratio: 40 students in a class of 40 and 30 in a class of 30 are the same
+ * problem, and only the percentage says so.
  */
-function StreamChart({
+function CapacityChart({
     data,
-    hasData,
 }: {
-    data: DashboardProps['studentsByStream'];
-    hasData: boolean;
+    data: (DashboardProps['classCapacity'][number] & {
+        utilization_percentage: number;
+    })[];
 }) {
     return (
         <div className={`${cardClass} p-5`}>
             <h3 className="font-serif text-base font-semibold text-navy">
-                Students by Stream
+                Class Capacity
             </h3>
 
-            {!hasData ? (
-                <EmptyChart message="No students enrolled yet." />
+            {data.length === 0 ? (
+                <EmptyChart message="No classes yet." />
             ) : (
-                <div className="mt-4 h-[280px] w-full">
+                <div className="mt-4 h-[320px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data}
-                                dataKey="student_count"
-                                nameKey="stream_name"
-                                innerRadius={55}
-                                outerRadius={90}
-                                paddingAngle={2}
-                                stroke="#FFFFFF"
-                                strokeWidth={2}
-                            >
-                                {data.map((entry, index) => (
-                                    <Cell
-                                        key={entry.stream_name}
-                                        fill={
-                                            SLICE_COLORS[
-                                                index % SLICE_COLORS.length
-                                            ]
-                                        }
-                                    />
-                                ))}
-                            </Pie>
+                        <BarChart
+                            data={data}
+                            margin={{ bottom: 5, left: -10 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#E5E7EB"
+                                vertical={false}
+                            />
+                            <XAxis
+                                dataKey="class_display_name"
+                                interval={0}
+                                angle={-30}
+                                height={80}
+                                textAnchor="end"
+                                tick={{ fontSize: 10 }}
+                                stroke="#6B7280"
+                            />
+                            <YAxis
+                                domain={[0, 100]}
+                                tick={{ fontSize: 11 }}
+                                stroke="#6B7280"
+                                unit="%"
+                            />
                             <Tooltip
-                                contentStyle={{
-                                    borderRadius: 6,
-                                    border: '1px solid #E5E7EB',
-                                    fontSize: 12,
-                                }}
+                                cursor={{ fill: 'rgba(15, 43, 95, 0.06)' }}
+                                content={<CapacityTooltip />}
                             />
-                            <Legend
-                                verticalAlign="bottom"
-                                height={28}
-                                iconType="circle"
-                                wrapperStyle={{ fontSize: 12 }}
+                            <Bar
+                                dataKey="utilization_percentage"
+                                fill={NAVY}
+                                radius={[3, 3, 0, 0]}
                             />
-                        </PieChart>
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
             )}
         </div>
     );
 }
+/**
+ * The hover card for a class bar.
+ *
+ * Shows the headcount beside the percentage, because a bar labelled 40% does
+ * not say whether that is 20 of 50 or 4 of 10, and the two call for very
+ * different responses.
+ */
+function CapacityTooltip({
+    active,
+    payload,
+}: {
+    active?: boolean;
+    payload?: { payload: DashboardProps['classCapacity'][number] }[];
+}) {
+    if (!active || !payload || payload.length === 0) {
+        return null;
+    }
+
+    const row = payload[0].payload;
+
+    return (
+        <div className="rounded-md border border-gray-200 bg-white px-3 py-2 shadow-sm">
+            <p className="text-xs font-semibold text-gray-900">
+                {row.class_display_name}
+            </p>
+            <p className="mt-1 text-xs text-gray-700">
+                Enrolled:{' '}
+                <span className="font-semibold">{row.enrolled_count}</span>
+                {row.capacity !== null && ` of ${row.capacity}`}
+            </p>
+            <p className="text-xs text-gray-700">
+                Utilisation:{' '}
+                <span className="font-semibold">
+                    {row.utilization_percentage}%
+                </span>
+            </p>
+        </div>
+    );
+}
+
+const tooltipStyle = {
+    borderRadius: 6,
+    border: '1px solid #E5E7EB',
+    fontSize: 12,
+} as const;
 
 /** The shared "there is nothing to draw" state. */
 function EmptyChart({ message }: { message: string }) {
@@ -356,6 +403,7 @@ function EmptyChart({ message }: { message: string }) {
         </div>
     );
 }
+
 /**
  * The students furthest below the 75% mark.
  *
@@ -517,11 +565,11 @@ function AdmissionsPanel({
 
 /** Inline icons, so no icon package is needed for four glyphs. */
 const ICONS = {
-    userPlus: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+    userPlus:
+        'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+    chart: 'M9 19v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
     clipboard:
         'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 8h6m-6 4h4',
-    chart:
-        'M9 19v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
     inbox: 'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4l-2 3h-4l-2-3H4',
 };
 
@@ -540,14 +588,14 @@ function QuickActions() {
             icon: ICONS.userPlus,
         },
         {
-            label: 'Attendance',
-            href: route('admin.attendance.index'),
-            icon: ICONS.clipboard,
-        },
-        {
             label: 'View Reports',
             href: route('admin.reports.attendance.daily'),
             icon: ICONS.chart,
+        },
+        {
+            label: 'Attendance',
+            href: route('admin.attendance.index'),
+            icon: ICONS.clipboard,
         },
         {
             label: 'Admissions',
@@ -557,29 +605,25 @@ function QuickActions() {
     ];
 
     return (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
             {actions.map((action) => (
                 <Link
                     key={action.label}
                     href={action.href}
-                    className={`${cardClass} flex items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:shadow-md`}
+                    className={`${cardClass} flex items-center gap-3 p-4 text-navy transition hover:bg-surface`}
                 >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface text-navy">
-                        <svg
-                            className="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={1.8}
-                            viewBox="0 0 24 24"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <path d={action.icon} />
-                        </svg>
-                    </span>
-                    <span className="text-sm font-medium text-navy">
-                        {action.label}
-                    </span>
+                    <svg
+                        className="h-5 w-5 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.8}
+                        viewBox="0 0 24 24"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <path d={action.icon} />
+                    </svg>
+                    <span className="text-sm font-medium">{action.label}</span>
                 </Link>
             ))}
         </div>
