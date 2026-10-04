@@ -157,11 +157,7 @@ php artisan test
 
 ## License
 
-Released under the **Educational Use License**.
-
-This project was built as a **learning exercise** to explore how a production-grade institutional LMS is designed and built. It is **not licensed for commercial use**. You are welcome to read, study, fork, and adapt the code for your own learning.
-
-If you build something on top of this, attribution is appreciated but not required.
+Released under the [MIT License](LICENSE). You are free to use, modify, and distribute this project, commercially or otherwise, as long as the copyright notice is preserved.
 
 ---
 
