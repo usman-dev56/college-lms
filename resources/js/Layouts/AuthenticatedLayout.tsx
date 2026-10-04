@@ -1,3 +1,5 @@
+import CollegeLogo from '@/Components/CollegeLogo';
+import { BRANDING } from '@/branding';
 import { Link, usePage } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useState } from 'react';
 
@@ -167,14 +169,10 @@ export default function AuthenticatedLayout({
                         </button>
 
                         <Link href="/" className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-md border-2 border-gold bg-navy-dark">
-                                <span className="font-serif text-lg font-bold text-gold">
-                                    GC
-                                </span>
-                            </div>
+                            <CollegeLogo variant="icon" size={40} />
                             <div className="hidden sm:block">
                                 <div className="font-serif text-base font-semibold leading-tight">
-                                    Government College Chiniot
+                                    {BRANDING.name}
                                 </div>
                                 <div className="text-xs text-gold-light">
                                     Learning Management System

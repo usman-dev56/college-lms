@@ -4,6 +4,7 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { BRANDING } from '@/branding';
 import { Link, useForm } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 
@@ -127,7 +128,7 @@ export default function Login({
 
             <div className="mt-6 border-t border-gray-200 pt-6 text-center text-xs text-gray-500">
                 Access is restricted to registered students, teachers, and
-                administrators of Government College Chiniot.
+                administrators of {BRANDING.name}.
             </div>
         </GuestLayout>
     );

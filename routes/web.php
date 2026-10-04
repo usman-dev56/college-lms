@@ -7,22 +7,24 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// The root URL is a router, not a page. There is no signed-out landing page:
-// a guest needs a login form, and a signed-in user already has a role-specific
-// dashboard that '/dashboard' cannot pick for them.
+// The root URL is a marketing page, not a redirect: a visitor who has no
+// account yet has to be able to read about the college before deciding to
+// apply. Someone who already signed in has no use for the pitch, so they go
+// straight to the dashboard their role implies - '/dashboard' cannot choose
+// for them.
 //
-// Deliberately outside the 'auth' group so guests can still reach it and be
-// bounced to login - putting it behind 'auth' would loop.
+// Deliberately outside the 'auth' group so guests can still reach it; behind
+// 'auth' the guest branch below could never run.
 Route::get('/', function () {
-    if (! Auth::check()) {
-        return redirect()->route('login');
+    if (Auth::check()) {
+        return match (Auth::user()->role) {
+            UserRole::Admin => redirect()->route('admin.dashboard'),
+            UserRole::Teacher => redirect()->route('teacher.dashboard'),
+            UserRole::Student => redirect()->route('student.dashboard'),
+        };
     }
 
-    return match (Auth::user()->role) {
-        UserRole::Admin => redirect()->route('admin.dashboard'),
-        UserRole::Teacher => redirect()->route('teacher.dashboard'),
-        UserRole::Student => redirect()->route('student.dashboard'),
-    };
+    return Inertia::render('Public/Landing');
 })->name('home');
 
 // Public admissions.

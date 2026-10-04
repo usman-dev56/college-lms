@@ -3,6 +3,7 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { BRANDING } from '@/branding';
 import { PageProps } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, ReactNode } from 'react';
@@ -91,7 +92,7 @@ export default function Create() {
                 </h1>
                 <div className="mt-2 h-1 w-16 bg-gold" />
                 <p className="mt-3 text-sm text-gray-600">
-                    Government College Chiniot &mdash; Intermediate (Grade 11)
+                    {BRANDING.name} &mdash; Intermediate (Grade 11)
                 </p>
 
                 {/*
