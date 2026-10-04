@@ -166,7 +166,7 @@ export default function Landing() {
                             {BRANDING.tagline}
                         </p>
                         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-gray-200 sm:text-lg">
-                            Intermediate education for Grades 11 &amp; 12 —
+                            Intermediate Programs for Grades 11 &amp; 12 --- offering
                             Pre-Medical, Pre-Engineering, ICS, Commerce, and
                             Humanities.
                         </p>
@@ -175,7 +175,7 @@ export default function Landing() {
                                 href={route('login')}
                                 className="w-full rounded-md bg-gold px-6 py-3 text-base font-semibold text-navy shadow-sm transition hover:bg-gold-light sm:w-auto"
                             >
-                                Student Login
+                                 Login to access the LMS Portal
                             </Link>
                             <Link
                                 href={applyUrl}
