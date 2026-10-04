@@ -1,7 +1,7 @@
 import CollegeLogo from '@/Components/CollegeLogo';
 import { BRANDING } from '@/branding';
 import { Link, usePage } from '@inertiajs/react';
-import { PropsWithChildren, ReactNode, useState } from 'react';
+import { PropsWithChildren, ReactNode, useEffect, useRef, useState } from 'react';
 
 interface User {
     id: number;
@@ -17,12 +17,6 @@ interface NavItem {
     icon: string;
 }
 
-/**
- * A titled group of links, rendered as a heading plus its list.
- *
- * Admin has thirteen links, which read as one undifferentiated wall; the
- * headings are what let someone find Streams without scanning every row.
- */
 interface NavSection {
     section: string;
     items: NavItem[];
@@ -105,7 +99,7 @@ const navItems: Record<User['role'], NavSection[]> = {
                 {
                     label: 'Attendance',
                     routeName: 'admin.attendance.index',
-                    routePattern: 'admin/attendance*',
+                    routePattern: 'admin/attendance',
                     icon: 'check',
                 },
                 {
@@ -205,46 +199,48 @@ const navItems: Record<User['role'], NavSection[]> = {
 /**
  * Whether a route pattern matches the page currently open.
  *
- * Ziggy's own matcher is tried first, then the pattern's trailing wildcard
- * is stripped for a prefix test, which is what makes "admin/reports*" light
- * up for admin/reports/attendance/monthly.
+ * The current path is read from the browser URL via Inertia's page props,
+ * not from Ziggy's route().current(), because the nav patterns are URL
+ * prefixes ("admin/periods*") and Ziggy's matcher works on route names.
+ *
+ * Exact patterns (no trailing "*") match only the exact path. Prefix
+ * patterns (ending in "*") match the prefix alone or the prefix followed
+ * by a slash, so "admin/attendance" does not light up while the user is
+ * on "admin/attendance-defaulters".
  */
-function isActive(pattern: string): boolean {
-    const currentRoute = route().current() ?? '';
+function isActive(pattern: string, currentPath: string): boolean {
+    if (!pattern.endsWith('*')) {
+        return currentPath === pattern;
+    }
 
-    return (
-        Boolean(route().current(pattern)) || currentRoute.startsWith(pattern.replace('*', ''))
-    );
+    const prefix = pattern.slice(0, -1);
+
+    return currentPath === prefix || currentPath.startsWith(prefix + '/');
 }
 
-/**
- * Path data for the navigation icons, keyed by NavItem.icon.
- *
- * Hand-picked rather than pulled from a package: fourteen glyphs is a
- * rounding error against an icon library's install weight, and these share
- * the 24px box and 1.75 stroke of the chevrons already in this file.
- * Hoisted to module scope so the map is not rebuilt on every render.
- */
 const NAV_ICON_PATHS: Record<string, string> = {
     home: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
     calendar:
         'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
     clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-    layers: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
+    layers:
+        'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
     book: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
-    users: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+    users:
+        'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
     'user-tie': 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
     graduation:
         'M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z',
     check: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-    alert: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-    chart: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+    alert:
+        'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+    chart:
+        'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
     clipboard:
         'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
     user: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
 };
 
-/** A single navigation glyph. Unknown keys fall back to the home icon. */
 function NavIcon({ name, className = 'h-4 w-4' }: { name: string; className?: string }) {
     return (
         <svg
@@ -264,22 +260,15 @@ function NavIcon({ name, className = 'h-4 w-4' }: { name: string; className?: st
     );
 }
 
-/**
- * The grouped link list, shared by the desktop sidebar and the mobile
- * drawer so a link can never look different between the two.
- *
- * `collapsed` narrows it to the desktop icon rail. Labels and section
- * headings are dropped rather than hidden, so the rail carries no invisible
- * text; a hairline between groups keeps them from reading as one long
- * column, and each link keeps its label on the title attribute for hover.
- */
 function SidebarNav({
     sections,
+    currentPath,
     collapsed = false,
     className = '',
     onNavigate,
 }: {
     sections: NavSection[];
+    currentPath: string;
     collapsed?: boolean;
     className?: string;
     onNavigate?: () => void;
@@ -301,7 +290,7 @@ function SidebarNav({
                     )}
                     <div className="space-y-0.5">
                         {group.items.map((item) => {
-                            const active = isActive(item.routePattern);
+                            const active = isActive(item.routePattern, currentPath);
 
                             return (
                                 <Link
@@ -313,14 +302,6 @@ function SidebarNav({
                                     className={
                                         'group flex items-center gap-3 rounded-md border-l-4 px-3 py-2 text-sm transition-all duration-150 ' +
                                         (collapsed ? 'justify-center px-2 ' : '') +
-                                        // The weight sits in the branches, not the
-                                        // shared base list. It resolves the
-                                        // same either way today, but only
-                                        // because Tailwind happens to emit
-                                        // font-medium first; one utility
-                                        // gaining a hover variant would flip
-                                        // it and silently unbold the active
-                                        // link.
                                         (active
                                             ? 'border-gold bg-gold/10 font-semibold text-navy shadow-sm'
                                             : 'border-transparent font-medium text-gray-700 hover:border-gold/40 hover:bg-surface hover:text-navy' +
@@ -355,17 +336,49 @@ export default function AuthenticatedLayout({
     header,
     children,
 }: PropsWithChildren<{ header?: ReactNode }>) {
-    const user = usePage().props.auth.user as User;
+    const page = usePage();
+    const user = page.props.auth.user as User;
+
+    // The current URL path without the query string, used for active-state
+    // matching. Inertia exposes the current URL on the page object.
+    const currentPath = page.url.split('?')[0].replace(/^\//, '');
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
 
+    // The desktop sidebar scrolls independently of the page. Because
+    // Inertia re-mounts the layout on every navigation, the sidebar's
+    // scrollTop would otherwise reset to 0 each time the user clicks a
+    // link. Persisting it in sessionStorage keeps the rail where the user
+    // left it, and using sessionStorage rather than localStorage means
+    // the position is forgotten when the tab closes.
+    const sidebarRef = useRef<HTMLElement | null>(null);
+
+    useEffect(() => {
+        const el = sidebarRef.current;
+        if (!el) return;
+
+        const saved = sessionStorage.getItem('sidebar-scroll-top');
+        if (saved !== null) {
+            el.scrollTop = parseInt(saved, 10);
+        }
+
+        const handleScroll = () => {
+            sessionStorage.setItem('sidebar-scroll-top', String(el.scrollTop));
+        };
+
+        el.addEventListener('scroll', handleScroll);
+
+        return () => {
+            el.removeEventListener('scroll', handleScroll);
+        };
+    }, []);
+
     const sections = navItems[user.role] ?? [];
 
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-surface">
-            {/* Top header — held in place by the flex column, not by sticky */}
             <header className="z-30 shrink-0 border-b border-gray-200 bg-navy text-white">
                 <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-3">
@@ -464,9 +477,8 @@ export default function AuthenticatedLayout({
             </header>
 
             <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar — desktop. The flex row pins it beside the content,
-                    so it needs no offset and scrolls only if it overflows. */}
                 <aside
+                    ref={sidebarRef}
                     className={
                         'hidden shrink-0 overflow-y-auto border-r border-gray-200 bg-white transition-[width] duration-200 ease-in-out lg:block ' +
                         (collapsed ? 'w-16' : 'w-64')
@@ -500,10 +512,9 @@ export default function AuthenticatedLayout({
                             </svg>
                         </button>
                     </div>
-                    <SidebarNav sections={sections} collapsed={collapsed} />
+                    <SidebarNav sections={sections} currentPath={currentPath} collapsed={collapsed} />
                 </aside>
 
-                {/* Sidebar — mobile drawer */}
                 {sidebarOpen && (
                     <>
                         <div
@@ -537,15 +548,15 @@ export default function AuthenticatedLayout({
                                 </button>
                             </div>
                             <SidebarNav
-                                    sections={sections}
-                                    className="flex-1 overflow-y-auto"
-                                    onNavigate={() => setSidebarOpen(false)}
-                                />
+                                sections={sections}
+                                currentPath={currentPath}
+                                className="flex-1 overflow-y-auto"
+                                onNavigate={() => setSidebarOpen(false)}
+                            />
                         </aside>
                     </>
                 )}
 
-                {/* Main content */}
                 <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {header && (
                         <div className="shrink-0 border-b border-gray-200 bg-white">
@@ -555,23 +566,6 @@ export default function AuthenticatedLayout({
                         </div>
                     )}
 
-                    {/* The only scrolling region on the page: the header, page
-                        header and sidebar all sit outside it.
-
-                        The inner wrapper is h-full, not min-h-full, and that
-                        distinction is what makes the table grid work. A
-                        min-height leaves the height property "auto", and a
-                        percentage height against an auto-height parent
-                        resolves to auto as well. An Index page's body is
-                        h-full min-h-0, so with min-h-full the whole chain
-                        collapsed to auto: the table card grew to the full
-                        height of its table and this wrapper scrolled the page
-                        instead. A definite height bounds the table card, which
-                        leaves its inner overflow-auto the only scroll region.
-
-                        Content taller than the viewport - the Create, Edit and
-                        Show pages - still scrolls here, because an overflowing
-                        child extends this element's scrollable overflow. */}
                     <div className="flex-1 overflow-y-auto overflow-x-hidden">
                         <div className="flex h-full flex-col px-4 py-6 sm:px-6 lg:px-8">
                             {children}
