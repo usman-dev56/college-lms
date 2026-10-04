@@ -1,112 +1,86 @@
-Future Vision College — Learning Management System
+# Future Vision College — Learning Management System
 
-A modern Learning Management System (LMS) for an intermediate college in Pakistan, covering Grades 11–12, academic management, student enrollment, attendance, timetables, admissions, and role-based portals.
+A modern **Learning Management System (LMS)** for an intermediate college in Pakistan, covering Grades 11–12, academic management, student enrollment, attendance, timetables, admissions, and role-based portals.
 
-Where Vision Meets Excellence
+> **Where Vision Meets Excellence**
 
-Features
+## Features
 
-Role-based authentication: Admin, Teacher, Student
+- Role-based authentication: **Admin, Teacher, Student**
+- Academic sessions, streams, subjects, classes, and sections
+- Teacher and student management
+- Class-subject-teacher assignments
+- Weekly timetable management with conflict detection
+- Student batches, profiles, admissions, and enrollment
+- Student portal with timetable and attendance
+- Period-wise student attendance marking
+- Attendance reports, trends, and defaulter lists
+- Admin dashboard with academic and attendance insights
+- Public landing page and online admissions
+- Responsive and print-friendly timetable views
 
-Academic sessions, streams, subjects, classes, and sections
+## Screenshots
 
-Teacher and student management
+| Page | Preview |
+|---|---|
+| Landing | ![Landing](docs/screenshots/01-landing.png) |
+| Login | ![Login](docs/screenshots/02-login.png) |
+| Admin Dashboard | ![Admin Dashboard](docs/screenshots/03-admin-dashboard.png) |
+| Timetable Builder | ![Timetable Builder](docs/screenshots/04-timetable-builder.png) |
+| Teacher Timetable | ![Teacher Timetable](docs/screenshots/06-teacher-timetable.png) |
 
-Class-subject-teacher assignments
+## Academic Streams
 
-Weekly timetable management with conflict detection
+**Pre-Medical · Pre-Engineering · ICS · Commerce · Humanities**
 
-Student batches, profiles, admissions, and enrollment
+## Tech Stack
 
-Student portal with timetable and attendance
+| Layer | Technology |
+|---|---|
+| Backend | Laravel 13, PHP 8.5 |
+| Frontend | React 19, TypeScript |
+| Bridge | Inertia.js 2 |
+| Styling | Tailwind CSS |
+| Database | PostgreSQL 17 |
+| Charts | Recharts |
+| Build | Vite |
+| Authentication | Laravel Breeze |
+| Testing | PHPUnit |
 
-Period-wise student attendance marking
+## Requirements
 
-Attendance reports, trends, and defaulter lists
+- PHP 8.5+
+- Composer 2.x
+- Node.js 22+
+- PostgreSQL 17+
+- Git
 
-Admin dashboard with academic and attendance insights
+## Installation
 
-Public landing page and online admissions
+### 1. Clone
 
-Responsive and print-friendly timetable views
-
-Academic Streams
-
-Pre-Medical · Pre-Engineering · ICS · Commerce · Humanities
-
-Tech Stack
-
-Layer
-
-Technology
-
-Backend
-
-Laravel 13, PHP 8.5
-
-Frontend
-
-React 19, TypeScript
-
-Bridge
-
-Inertia.js 2
-
-Styling
-
-Tailwind CSS
-
-Database
-
-PostgreSQL 17
-
-Charts
-
-Recharts
-
-Build
-
-Vite
-
-Authentication
-
-Laravel Breeze
-
-Testing
-
-PHPUnit
-
-Requirements
-
-PHP 8.5+
-
-Composer 2.x
-
-Node.js 22+
-
-PostgreSQL 17+
-
-Git
-
-Installation
-
-1. Clone
-
+```cmd
 git clone https://github.com/usman-dev56/college-lms.git
 cd college-lms
+```
 
-2. Install dependencies
+### 2. Install dependencies
 
+```cmd
 composer install
 npm install
+```
 
-3. Configure environment
+### 3. Configure environment
 
+```cmd
 copy .env.example .env
 php artisan key:generate
+```
 
-Update .env with your PostgreSQL credentials:
+Update `.env` with your PostgreSQL credentials:
 
+```env
 APP_NAME="Future Vision College"
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
@@ -114,55 +88,45 @@ DB_PORT=5433
 DB_DATABASE=college_lms_dev
 DB_USERNAME=postgres
 DB_PASSWORD=your_password
+```
 
-4. Create database and seed data
+### 4. Create database and seed data
 
+```cmd
 psql -U postgres -c "CREATE DATABASE college_lms_dev;"
 php artisan migrate
 php artisan db:seed
+```
 
-5. Run the application
+### 5. Run the application
 
 Terminal 1:
 
+```cmd
 npm run dev
+```
 
 Terminal 2:
 
+```cmd
 php artisan serve
+```
 
-Open http://127.0.0.1:8000
+Open **http://127.0.0.1:8000**
 
-Demo Credentials
+## Demo Credentials
 
-Role
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@college.test` | Configured in `.env` |
+| Teacher | `ahmed.khan@college.test` | `teacher123` |
+| Student | `ahmed.khan.16@college.test` | `student123` |
 
-Email
+> Change demo credentials before production deployment.
 
-Password
+## Project Structure
 
-Admin
-
-admin@college.test
-
-Configured in .env
-
-Teacher
-
-ahmed.khan@college.test
-
-teacher123
-
-Student
-
-ahmed.khan.16@college.test
-
-student123
-
-Change demo credentials before production deployment.
-
-Project Structure
-
+```text
 college-lms/
 ├── app/              # Controllers, Models, Services
 ├── database/         # Migrations and Seeders
@@ -170,37 +134,32 @@ college-lms/
 ├── routes/           # Application routes
 ├── tests/            # Feature and application tests
 └── docs/screenshots/ # Project screenshots
+```
 
-Screenshots
 
-Project screenshots are stored in docs/screenshots/ and include the landing page, login, dashboards, timetable, attendance, admissions, and student portal.
 
-Testing
+## Testing
 
+```cmd
 npx tsc --noEmit
 php artisan test
+```
 
-Roadmap
+## Roadmap
 
-Foundation & Authentication
+- [x] Foundation & Authentication
+- [x] Academic Structure
+- [x] Students & Enrollment
+- [x] Attendance
+- [ ] Assessments & Report Cards
+- [ ] Fees & Challans
+- [ ] Board Registration & Results
 
-Academic Structure
+## License
 
-Students & Enrollment
+**Educational Use License** — intended for educational institutions and learning purposes. Commercial use requires written permission.
 
-Attendance
+## Credits
 
-Assessments & Report Cards
-
-Fees & Challans
-
-Board Registration & Results
-
-License
-
-Educational Use License — intended for educational institutions and learning purposes. Commercial use requires written permission.
-
-Credits
-
-Developed for Future Vision College
-Where Vision Meets Excellence.
+**Developed for Future Vision College**  
+*Where Vision Meets Excellence.*
