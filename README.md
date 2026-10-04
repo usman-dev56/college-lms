@@ -157,9 +157,27 @@ php artisan test
 
 ## License
 
-**Educational Use License** — intended for educational institutions and learning purposes. Commercial use requires written permission.
+Released under the **Educational Use License**.
+
+This project was built as a **learning exercise** to explore how a production-grade institutional LMS is designed and built. It is **not licensed for commercial use**. You are welcome to read, study, fork, and adapt the code for your own learning.
+
+If you build something on top of this, attribution is appreciated but not required.
+
+---
 
 ## Credits
 
-**Developed for Future Vision College**  
+**A learning project** — built to understand the architecture of a real institutional LMS for a Pakistani intermediate colleges.
+
+- Not affiliated with any real college; **Future Vision College** is a fictional name used for demonstration.
+- All student, teacher, and admission data used in the seeders is entirely fictional.
+- Built with [Laravel](https://laravel.com), [React](https://react.dev), [Inertia.js](https://inertiajs.com), [Tailwind CSS](https://tailwindcss.com), and [Recharts](https://recharts.org).
+
 *Where Vision Meets Excellence.*
+
+---
+
+## Contributing
+
+This is a personal learning project. If you spot something interesting or want to share feedback, feel free to open an issue or start a discussion.
+
